@@ -188,6 +188,12 @@
   .addr-item{display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:14px; color:var(--text); cursor:pointer; border-top:1px solid var(--border);}
   .addr-item:first-child{border-top:0;}
   .addr-item:active{background:var(--surface2);}
+  /* éditeur date / créneau */
+  .sched{margin:0 0 16px;}
+  .sched-lbl{font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;}
+  .dt-input{flex:1; height:46px; border:1px solid var(--border2); border-radius:var(--r-md); background:var(--surface); padding:0 12px; font-size:14px; font-family:inherit; color:var(--text); outline:0;}
+  .band-sel{flex:none; height:46px; border:1px solid var(--border2); border-radius:var(--r-md); background:var(--surface); padding:0 10px; font-size:14px; font-family:inherit; color:var(--text); outline:0; cursor:pointer;}
+  .dt-input:focus, .band-sel:focus{border-color:var(--pine);}
   .tasknote{font-size:12px; color:var(--text2); font-style:italic; padding:6px 12px 0 46px;}
   .tasknote-edit{padding:7px 12px 0 46px;}
   .tasknote-edit input{width:100%; height:38px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); padding:0 11px; font-size:13px; color:var(--text); font-family:inherit; outline:0;}
@@ -374,7 +380,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.2';
+var APP_VERSION='1.3';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -402,7 +408,10 @@ function unitOf(label){ for(var i=0;i<PRESTATIONS.length;i++){ if(PRESTATIONS[i]
 function createChantier(){
   var cn=((document.getElementById('newClient')||{}).value||'').trim()||'Nouveau chantier';
   var ad=((document.getElementById('newAddr')||{}).value||'').trim();
-  var id='new'+(++newSeq), day=state.createDay||17, band=state.createBand||'matin';
+  var dateStr=((document.getElementById('newDate')||{}).value)||('2026-06-'+pad2(state.createDay||17));
+  var band=((document.getElementById('newBand')||{}).value)||state.createBand||'matin';
+  var day=parseInt(dateStr.split('-')[2],10); if(isNaN(day)||day<1||day>30) day=state.createDay||17;
+  var id='new'+(++newSeq);
   var ch={id:id, name:cn, addr:ad, status:'planifie', time:bandTime(band)};
   if(!CH[day]) CH[day]=[];
   CH[day].push(ch);
@@ -424,6 +433,22 @@ function addrInput(v){
 function pickAddr(c){ var inp=document.getElementById('newAddr'); if(inp) inp.value=c; var el=document.getElementById('addr-suggest'); if(el) el.innerHTML=''; }
 function askDelete(id){ var c=chantierById(id); if(!c) return; showConfirm('Supprimer ce chantier ?','<b>'+c.name+'</b><br><span style="color:var(--text3)">Cette action est définitive.</span>','Supprimer',function(){ deleteChantier(id); }, true); }
 function deleteChantier(id){ for(var k in CH){ if(CH[k]) CH[k]=CH[k].filter(function(c){return c.id!==id;}); } delete state.tasks[id]; delete state.archived[id]; DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number); go('chantiers'); }
+function pad2(n){ return (n<10?'0':'')+n; }
+function dayOf(id){ for(var k in CH){ if(CH[k] && CH[k].some(function(c){return c.id===id;})) return parseInt(k,10); } return state.createDay||17; }
+function bandOptions(sel){ return BANDS.map(function(b){return '<option value="'+b.key+'"'+(b.key===sel?' selected':'')+'>'+b.label+'</option>';}).join(''); }
+function setSchedule(id, dateStr, band){
+  var ch=chantierById(id); if(!ch) return;
+  var curDay=dayOf(id), curBand=bandOf(ch.time);
+  var newDay = dateStr ? parseInt(dateStr.split('-')[2],10) : curDay;
+  if(isNaN(newDay)||newDay<1||newDay>30) newDay=curDay;
+  var newBand = band || curBand;
+  if(CH[curDay]) CH[curDay]=CH[curDay].filter(function(c){return c.id!==id;});
+  ch.time=bandTime(newBand);
+  if(!CH[newDay]) CH[newDay]=[];
+  CH[newDay].push(ch);
+  DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
+  render();
+}
 function login(){ go('agenda'); }
 function logout(){ go('connexion'); }
 function dictee(){ alert('Dictée vocale — bientôt dans l’app : tu parles, l’IA propose, tu valides.'); }
@@ -593,6 +618,7 @@ function viewFiche(){
     '<div class="row" style="gap:8px;padding-bottom:6px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="go(\'agenda\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:17px;font-weight:600;">Fiche chantier</div></div>'+
     '<div class="card" style="border-left-width:3px;border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';cursor:default;margin:6px 0 16px;">'+
       '<div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div>'+
+    '<div class="sched"><div class="sched-lbl">Date de début</div><div class="row" style="gap:8px;"><input type="date" class="dt-input" min="2026-06-01" max="2026-06-30" value="2026-06-'+pad2(dayOf(c.id))+'" onchange="setSchedule(\''+c.id+'\',this.value,null)"/><select class="band-sel" onchange="setSchedule(\''+c.id+'\',null,this.value)">'+bandOptions(bandOf(c.time))+'</select></div></div>'+
     '<div class="row between" style="margin-bottom:9px;"><div class="muted">Tâches</div><div style="font-size:12px;color:var(--text2);">'+done+' / '+ts.length+' faites</div></div>'+
     rows+
     '<div class="add-task"><input id="newtask" placeholder="Ajouter une tâche…" onkeydown="if(event.key===\'Enter\')addTask()"/><button class="add-btn" aria-label="Ajouter la tâche" onclick="addTask()">'+icon('plus',22,'#fff')+'</button></div>'+
@@ -807,6 +833,8 @@ function renderModal(){
     '<div class="field">'+icon('user',19,'var(--text3)')+'<input id="newClient" placeholder="Client" autocomplete="off"/></div>'+
     '<div class="field">'+icon('pin',19,'var(--text3)')+'<input id="newAddr" placeholder="Adresse" autocomplete="off" oninput="addrInput(this.value)" onfocus="addrInput(this.value)"/></div>'+
     '<div class="addr-suggest" id="addr-suggest"></div>'+
+    '<div class="muted" style="margin:10px 0 7px;">Date de début</div>'+
+    '<div class="row" style="gap:8px;margin-bottom:6px;"><input type="date" class="dt-input" id="newDate" min="2026-06-01" max="2026-06-30" value="2026-06-'+pad2(state.createDay||17)+'"/><select class="band-sel" id="newBand">'+bandOptions(state.createBand||'matin')+'</select></div>'+
     '<div class="muted" style="margin:10px 0 9px;">Prestations</div>'+
     state.presta.map(function(p,i){
       var head='<div class="presta-head" onclick="togglePresta('+i+')">'+icon(p.on?'checkbox':'square',22,p.on?STATUS.done.fg:'var(--text3)')+'<span class="pl">'+p.n+'</span></div>';
