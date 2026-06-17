@@ -324,6 +324,8 @@ var BANDS=[{key:'matin',label:'Matin',time:'8h–12h'},{key:'aprem',label:'Aprè
 function bandOf(t){ var h=parseInt(t,10); return h<12?'matin':(h<17?'aprem':'soir'); }
 var WD3=['dim','lun','mar','mer','jeu','ven','sam'];
 var MONTHS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+var MONTHS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+function shiftMonth(n){ var m=state.monthM+n, y=state.monthY; while(m<0){m+=12;y--;} while(m>11){m-=12;y++;} state.monthM=m; state.monthY=y; var nd=new Date(y,m+1,0).getDate(); if(state.monthSel>nd) state.monthSel=nd; render(); }
 function isoOf(dt){ return dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate()); }
 function weekDates(startIso){ var s=new Date(startIso+'T00:00:00'); var a=[]; for(var i=0;i<7;i++){ var d=new Date(s); d.setDate(s.getDate()+i); a.push({iso:isoOf(d), d:d.getDate(), wd:WD3[d.getDay()], m:d.getMonth(), y:d.getFullYear()}); } return a; }
 function mondayOf(iso){ var d=new Date(iso+'T00:00:00'); var dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return isoOf(d); }
@@ -362,7 +364,7 @@ function chantierById(id){
 
 /* ----- état ----- */
 var state = {
-  screen:'connexion', daySel:2, monthSel:17, chantier:null, tasks:{}, pw1:false, pw2:false,
+  screen:'connexion', daySel:2, monthSel:17, monthY:2026, monthM:5, chantier:null, tasks:{}, pw1:false, pw2:false,
   filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
   weekStart:'2026-06-15', createDate:'2026-06-17', createBand:'matin', carteDate:'',
   presta:[
@@ -397,7 +399,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.7';
+var APP_VERSION='1.8';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -468,7 +470,8 @@ function logout(){ go('connexion'); }
 function dictee(){ alert('Dictée vocale — bientôt dans l’app : tu parles, l’IA propose, tu valides.'); }
 function selectMonthDay(d){
   state.monthSel=d;
-  for(var i=0;i<WEEK.length;i++){ if(WEEK[i].d===d){ state.daySel=i; } } // garde l'agenda synchro si jour de la semaine en cours
+  var iso=state.monthY+'-'+pad2(state.monthM+1)+'-'+pad2(d);
+  state.weekStart=mondayOf(iso); // sélectionner un jour cale aussi la semaine de l'agenda
   render();
 }
 
@@ -659,12 +662,15 @@ function viewFiche(){
 }
 
 function viewMois(){
-  var first=new Date(2026,5,1).getDay();      // 0=dim .. 6=sam
-  var offset=(first+6)%7;                       // grille lundi -> dimanche
+  var y=state.monthY, m=state.monthM;
+  var miso=function(d){ return y+'-'+pad2(m+1)+'-'+pad2(d); };
+  var offset=(new Date(y,m,1).getDay()+6)%7;     // grille lundi -> dimanche
+  var ndays=new Date(y,m+1,0).getDate();
   var cells='';
   for(var b=0;b<offset;b++){ cells+='<div></div>'; }
-  for(var d=1;d<=30;d++){
-    var sel=d===state.monthSel, has=!!(CH['2026-06-'+pad2(d)]&&CH['2026-06-'+pad2(d)].length), today=d===17;
+  for(var d=1;d<=ndays;d++){
+    var iso=miso(d);
+    var sel=d===state.monthSel, has=!!(CH[iso]&&CH[iso].length), today=iso===TODAY;
     var bg=sel?'var(--pine)':'transparent';
     var fg=sel?'#fff':(today?'var(--pine)':'var(--text)');
     var dotc=has?(sel?'#fff':'var(--pine)'):'transparent';
@@ -674,14 +680,20 @@ function viewMois(){
   }
   var wd=['L','M','M','J','V','S','D'].map(function(w){return '<div style="text-align:center;font-size:11px;color:var(--text3);padding-bottom:6px;">'+w+'</div>';}).join('');
   var grid='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">'+wd+cells+'</div>';
-  var items=(CH['2026-06-'+pad2(state.monthSel)]||[]).filter(function(c){return !state.archived[c.id];});
-  var label=(state.monthSel===17?"Aujourd'hui · ":'')+state.monthSel+' juin';
+  var selDay=state.monthSel<=ndays?state.monthSel:1, selIso=miso(selDay);
+  var items=(CH[selIso]||[]).filter(function(c){return !state.archived[c.id];});
+  var label=(selIso===TODAY?"Aujourd'hui · ":'')+selDay+' '+MONTHS_LONG[m]+' '+y;
   var list=items.length?items.map(function(c){
     var accent=STATUS[STATUS_KEY[c.status]].fg;
     return '<div class="appt"><div class="time">'+c.time+'</div><div class="card" style="border-left-color:'+accent+'" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div></div>';
   }).join(''):'<div class="empty">'+icon('calblank',28,'var(--text3)')+'<div>Aucun chantier ce jour</div></div>';
   return '<div class="pad">'+
-    subHead('Vue mois · Juin 2026','agenda')+
+    subHead('Vue mois','agenda')+
+    '<div class="row between" style="margin-bottom:12px;background:var(--pineLight);border-radius:var(--r-md);padding:4px 6px;">'+
+      '<button class="wk-nav" onclick="shiftMonth(-1)" aria-label="Mois précédent">'+icon('back',20,'var(--pineDark)')+'</button>'+
+      '<div style="font-size:15px;font-weight:700;color:var(--pineDark);text-transform:capitalize;">'+MONTHS_LONG[m]+' '+y+'</div>'+
+      '<button class="wk-nav" onclick="shiftMonth(1)" aria-label="Mois suivant">'+icon('chev',20,'var(--pineDark)')+'</button>'+
+    '</div>'+
     grid+
     '<div class="muted" style="margin:18px 0 10px;">'+label+'</div>'+
     list+'</div>';
