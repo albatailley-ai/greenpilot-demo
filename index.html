@@ -14,19 +14,14 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
-    margin:0; background:#e6e2da; color:var(--text);
+    margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:18px 12px 32px;
+    display:flex; justify-content:center; min-height:100vh;
   }
-  .intro{max-width:390px; text-align:center; margin-bottom:14px;}
-  .intro h1{font-size:18px; margin:0 0 4px; font-weight:600; color:var(--pineDark);}
-  .intro p{font-size:13px; color:#6c6b61; margin:0; line-height:1.5;}
   .phone{
-    width:390px; max-width:100%; height:min(820px, calc(100vh - 110px));
-    background:var(--bg); border-radius:34px; overflow:hidden; position:relative;
-    box-shadow:0 18px 50px rgba(0,0,0,.22); border:1px solid #d4cfc5; display:flex; flex-direction:column;
+    width:100%; max-width:480px; height:100vh; height:100dvh;
+    background:var(--bg); overflow:hidden; position:relative; display:flex; flex-direction:column;
   }
-  .notch{height:26px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px; font-weight:600; padding-top:6px;}
   .ubanner{display:flex; align-items:center; gap:10px; background:var(--pine); color:#fff; padding:9px 12px;}
   .ubanner .ub-txt{flex:1; display:flex; flex-direction:column; line-height:1.25;}
   .ubanner .ub-txt b{font-size:13px; font-weight:600;}
@@ -73,6 +68,13 @@
   .task .qty{font-size:11px; color:var(--text2); margin-top:1px;}
   .task .st{font-size:11px; font-weight:600;}
   .strike{text-decoration:line-through;}
+  .task-del{margin-left:6px; background:transparent; border:0; cursor:pointer; padding:4px; display:flex; border-radius:8px; transition:transform .1s;}
+  .task-del:active{transform:scale(.85);}
+  .add-task{display:flex; align-items:center; gap:8px; margin-top:4px;}
+  .add-task input{flex:1; height:48px; border:1.5px dashed var(--border2); border-radius:var(--r-md); background:transparent; padding:0 14px; font-size:14px; color:var(--text); font-family:inherit; outline:0; transition:border-color .15s;}
+  .add-task input::placeholder{color:var(--text3);}
+  .add-task input:focus{border-color:var(--pine); border-style:solid;}
+  .add-task .add-btn{width:48px; height:48px; flex:none; border-radius:var(--r-md); background:var(--pine); color:#fff; border:0; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(31,93,67,.28);}
   /* generic */
   .btn-primary{height:52px; border-radius:var(--r-md); background:var(--pine); color:#fff; font-size:16px; font-weight:600; border:0; width:100%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(31,93,67,.28); transition:transform .1s;}
   .btn-clay{height:50px; border-radius:var(--r-md); background:var(--clay); color:#fff; font-size:15px; font-weight:600; border:0; width:100%; cursor:pointer; box-shadow:0 6px 16px rgba(194,86,47,.28); transition:transform .1s;}
@@ -116,20 +118,13 @@
 </style>
 </head>
 <body>
-  <div class="intro">
-    <h1>GreenPilot — prototype cliquable</h1>
-    <p>Clique partout : jours, chantiers, cases à cocher, bouton « Créer ». Données fictives. Tes retours bienvenus 🙂</p>
-  </div>
-
   <div class="phone">
-    <div class="notch" id="clock">9:41</div>
     <div class="ubanner" id="ubanner"></div>
     <div class="scroll" id="app"></div>
     <nav class="tabbar" id="tabbar"></nav>
 
     <!-- modal création -->
     <div class="modal" id="modal">
-      <div class="notch">9:41</div>
       <div class="scroll" id="modal-body"></div>
     </div>
   </div>
@@ -246,13 +241,16 @@ function selectDay(i){ state.daySel=i; render(); }
 function cycleTask(id){ var ts=tasksFor(state.chantier); for(var i=0;i<ts.length;i++){ if(ts[i].id===id){ ts[i].status=NEXT[ts[i].status]; } } render(); }
 function togglePresta(i){ state.presta[i].on=!state.presta[i].on; renderModal(); }
 function setDetail(i, val){ state.presta[i].detail=val; } // pas de re-render : on garde le focus pendant la saisie
+var taskSeq=1000;
+function addTask(){ var inp=document.getElementById('newtask'); if(!inp) return; var v=(inp.value||'').trim(); if(!v) return; tasksFor(state.chantier).push({id:'u'+(++taskSeq), label:v, status:'a_faire'}); render(); var n=document.getElementById('newtask'); if(n) n.focus(); }
+function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chantier]=ts.filter(function(t){return t.id!==id;}); render(); }
 
 /* ----- bandeau mise à jour -----
    Le bandeau ne s'affiche QUE si une version plus récente est en ligne
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='0.5';
+var APP_VERSION='0.6';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -354,7 +352,8 @@ function viewFiche(){
       icon(m.icon,22,col.fg)+
       '<div style="flex:1"><div class="lbl'+(t.status==='fait'?' strike':'')+'">'+t.label+'</div>'+
       (t.unit?'<div class="qty">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</div>':'')+'</div>'+
-      '<div class="st" style="color:'+col.fg+'">'+m.label+'</div></div>';
+      '<div class="st" style="color:'+col.fg+'">'+m.label+'</div>'+
+      '<button class="task-del" aria-label="Retirer la tâche" onclick="event.stopPropagation();removeTask(\''+t.id+'\')">'+icon('x',18,'var(--text3)')+'</button></div>';
   }).join('');
   return '<div class="pad">'+
     '<div class="row" style="gap:8px;padding-bottom:6px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="go(\'agenda\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:17px;font-weight:600;">Fiche chantier</div></div>'+
@@ -362,7 +361,8 @@ function viewFiche(){
       '<div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div>'+
     '<div class="row between" style="margin-bottom:9px;"><div class="muted">Tâches</div><div style="font-size:12px;color:var(--text2);">'+done+' / '+ts.length+' faites</div></div>'+
     rows+
-    '<div style="text-align:center;color:var(--text3);font-size:12px;margin-top:14px;">Astuce : tape une tâche pour changer son état (à faire → fait → reporté).</div>'+
+    '<div class="add-task"><input id="newtask" placeholder="Ajouter une tâche…" onkeydown="if(event.key===\'Enter\')addTask()"/><button class="add-btn" aria-label="Ajouter la tâche" onclick="addTask()">'+icon('plus',22,'#fff')+'</button></div>'+
+    '<div style="text-align:center;color:var(--text3);font-size:12px;margin-top:14px;">Astuce : tape une tâche pour changer son état · l’icône ✕ la retire · « Ajouter » pour en créer une.</div>'+
     '</div>';
 }
 
