@@ -181,6 +181,13 @@
   .note-btn{display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--text2); background:var(--surface2); border:0; border-radius:999px; padding:5px 9px; cursor:pointer; font-family:inherit; white-space:nowrap; transition:transform .1s;}
   .note-btn.has{background:var(--pineLight); color:var(--pineDark);}
   .note-btn:active{transform:scale(.92);}
+  /* autocomplétion d'adresse */
+  .addr-suggest{border:1px solid var(--border2); border-radius:var(--r-md); background:var(--surface); margin:-4px 0 10px; overflow:hidden; box-shadow:0 6px 16px rgba(0,0,0,.08);}
+  .addr-suggest:empty{display:none;}
+  .addr-head{display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--pine); padding:8px 12px 4px; text-transform:uppercase; letter-spacing:.4px;}
+  .addr-item{display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:14px; color:var(--text); cursor:pointer; border-top:1px solid var(--border);}
+  .addr-item:first-child{border-top:0;}
+  .addr-item:active{background:var(--surface2);}
   .tasknote{font-size:12px; color:var(--text2); font-style:italic; padding:6px 12px 0 46px;}
   .tasknote-edit{padding:7px 12px 0 46px;}
   .tasknote-edit input{width:100%; height:38px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); padding:0 11px; font-size:13px; color:var(--text); font-family:inherit; outline:0;}
@@ -334,7 +341,7 @@ function chantierById(id){
 /* ----- état ----- */
 var state = {
   screen:'connexion', daySel:2, monthSel:17, chantier:null, tasks:{}, pw1:false, pw2:false,
-  filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
+  filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null, createDay:17, createBand:'matin',
   presta:[
     {n:'Tonte pelouse',on:true,hint:'Surface (m²)',detail:''},
     {n:'Taille de haie',on:true,hint:'Longueur (mètres)',detail:''},
@@ -367,7 +374,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.1';
+var APP_VERSION='1.2';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -388,8 +395,35 @@ function checkUpdate(){
 function renderBanner(){ var b=document.getElementById('ubanner'); if(b) b.style.display='none'; checkUpdate(); setInterval(checkUpdate, 60000); }
 function updateApp(){ location.replace(location.pathname+'?v='+Date.now()); }
 function dismissBanner(v){ try{ sessionStorage.setItem('gp_skip',v||''); }catch(e){} var b=document.getElementById('ubanner'); if(b) b.style.display='none'; }
-function openCreate(){ document.getElementById('modal').classList.add('show'); renderModal(); }
+function openCreate(day, band){ state.createDay=day||17; state.createBand=band||'matin'; document.getElementById('modal').classList.add('show'); renderModal(); }
 function closeCreate(){ document.getElementById('modal').classList.remove('show'); }
+var newSeq=0;
+function unitOf(label){ for(var i=0;i<PRESTATIONS.length;i++){ if(PRESTATIONS[i].n===label) return PRESTATIONS[i].u; } return ''; }
+function createChantier(){
+  var cn=((document.getElementById('newClient')||{}).value||'').trim()||'Nouveau chantier';
+  var ad=((document.getElementById('newAddr')||{}).value||'').trim();
+  var id='new'+(++newSeq), day=state.createDay||17, band=state.createBand||'matin';
+  var ch={id:id, name:cn, addr:ad, status:'planifie', time:bandTime(band)};
+  if(!CH[day]) CH[day]=[];
+  CH[day].push(ch);
+  var tl=[]; state.presta.forEach(function(p){ if(p.on){ tl.push({id:'t'+(++taskSeq), label:p.n, qty:(p.detail||''), unit:unitOf(p.n), status:'a_faire'}); } });
+  state.tasks[id]=tl;
+  DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
+  closeCreate();
+  openChantier(id);
+}
+var NEAR=['Biscarrosse','Parentis-en-Born','Gastes','Sanguinet','Mimizan'];
+var COMMUNES=NEAR.concat(['Sainte-Eulalie-en-Born','Ychoux','Pontenx-les-Forges','Escource','Arcachon','La Teste-de-Buch','Gujan-Mestras','Le Teich','Biganos','Mios','Salles']);
+function addrInput(v){
+  var el=document.getElementById('addr-suggest'); if(!el) return;
+  var q=(v||'').trim().toLowerCase();
+  var list = q ? COMMUNES.filter(function(c){return c.toLowerCase().indexOf(q)>-1;}).slice(0,6) : NEAR.slice(0,5);
+  var head = q ? '' : '<div class="addr-head">'+icon('pin',13,'var(--pine)')+'À proximité de vous</div>';
+  el.innerHTML = list.length ? head + list.map(function(c){return '<div class="addr-item" onclick="pickAddr(\''+c.replace(/'/g,"\\'")+'\')">'+icon('pin',15,'var(--text3)')+'<span>'+c+'</span></div>';}).join('') : '';
+}
+function pickAddr(c){ var inp=document.getElementById('newAddr'); if(inp) inp.value=c; var el=document.getElementById('addr-suggest'); if(el) el.innerHTML=''; }
+function askDelete(id){ var c=chantierById(id); if(!c) return; showConfirm('Supprimer ce chantier ?','<b>'+c.name+'</b><br><span style="color:var(--text3)">Cette action est définitive.</span>','Supprimer',function(){ deleteChantier(id); }, true); }
+function deleteChantier(id){ for(var k in CH){ if(CH[k]) CH[k]=CH[k].filter(function(c){return c.id!==id;}); } delete state.tasks[id]; delete state.archived[id]; DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number); go('chantiers'); }
 function login(){ go('agenda'); }
 function logout(){ go('connexion'); }
 function dictee(){ alert('Dictée vocale — bientôt dans l’app : tu parles, l’IA propose, tu valides.'); }
@@ -448,9 +482,9 @@ function moveChantier(id, fromDay, toDay, toBand){
   render();
 }
 var confirmCb=null;
-function showConfirm(title, detailHtml, okLabel, cb){
+function showConfirm(title, detailHtml, okLabel, cb, danger){
   confirmCb=cb; var el=document.getElementById('confirm');
-  el.innerHTML='<div class="sheet"><div style="font-size:16px;font-weight:700;margin-bottom:8px;">'+title+'</div><div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:18px;">'+detailHtml+'</div><div class="row" style="gap:10px;"><button class="cf-cancel" onclick="closeConfirm()">Annuler</button><button class="cf-ok" onclick="confirmOk()">'+okLabel+'</button></div></div>';
+  el.innerHTML='<div class="sheet"><div style="font-size:16px;font-weight:700;margin-bottom:8px;">'+title+'</div><div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:18px;">'+detailHtml+'</div><div class="row" style="gap:10px;"><button class="cf-cancel" onclick="closeConfirm()">Annuler</button><button class="cf-ok"'+(danger?' style="background:#b23b2e"':'')+' onclick="confirmOk()">'+okLabel+'</button></div></div>';
   el.classList.add('show');
 }
 function closeConfirm(){ var el=document.getElementById('confirm'); if(el) el.classList.remove('show'); confirmCb=null; }
@@ -514,7 +548,7 @@ function viewAgenda(){
     var label='<div class="glabel"><b>'+b.label+'</b><span>'+b.time+'</span></div>';
     var cells=WEEK.map(function(x){
       var list=(CH[x.d]||[]).filter(function(ch){return !state.archived[ch.id] && bandOf(ch.time)===b.key;});
-      if(!list.length){ return '<div class="gcell empty" data-day="'+x.d+'" data-band="'+b.key+'" onclick="openCreate()"><span class="plus">+</span></div>'; }
+      if(!list.length){ return '<div class="gcell empty" data-day="'+x.d+'" data-band="'+b.key+'" onclick="openCreate('+x.d+',\''+b.key+'\')"><span class="plus">+</span></div>'; }
       return '<div class="gcell" data-day="'+x.d+'" data-band="'+b.key+'">'+list.map(function(ch){
         var c=STATUS[STATUS_KEY[ch.status]];
         return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\','+x.d+')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
@@ -572,6 +606,7 @@ function viewFiche(){
           ? '<button class="rep-btn" style="width:100%;margin-top:10px;background:var(--surface2);color:var(--text2)" onclick="unarchive(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Désarchiver</button>'
           : '<div style="display:flex;gap:10px;margin-top:10px;"><button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text2)" onclick="archiveChantier(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Archiver</button><button class="rep-btn" style="flex:1;background:transparent;color:var(--clayDark);border:1px solid var(--border2)" onclick="rouvrir(\''+c.id+'\')">Rouvrir</button></div>'))+
     '<div style="text-align:center;color:var(--text3);font-size:12px;margin-top:14px;">Astuce : tape une tâche pour changer son état · l’icône ✕ la retire · « Ajouter » pour en créer une.</div>'+
+    '<button class="rep-btn" style="width:100%;margin-top:8px;background:transparent;color:#b23b2e;height:44px" onclick="askDelete(\''+c.id+'\')">'+icon('x',17,'#b23b2e')+'Supprimer le chantier</button>'+
     '</div>';
 }
 
@@ -769,15 +804,16 @@ function renderModal(){
     '<div style="height:14px"></div>'+
     '<div class="voice">'+icon('mic',23,'var(--pineDark)')+'Dicter le chantier</div>'+
     '<div style="text-align:center;color:var(--text3);font-size:12px;margin-bottom:16px;">ou remplir manuellement</div>'+
-    '<div class="field">'+icon('user',19,'var(--text3)')+'<input placeholder="Client"/></div>'+
-    '<div class="field">'+icon('pin',19,'var(--text3)')+'<input placeholder="Adresse"/></div>'+
+    '<div class="field">'+icon('user',19,'var(--text3)')+'<input id="newClient" placeholder="Client" autocomplete="off"/></div>'+
+    '<div class="field">'+icon('pin',19,'var(--text3)')+'<input id="newAddr" placeholder="Adresse" autocomplete="off" oninput="addrInput(this.value)" onfocus="addrInput(this.value)"/></div>'+
+    '<div class="addr-suggest" id="addr-suggest"></div>'+
     '<div class="muted" style="margin:10px 0 9px;">Prestations</div>'+
     state.presta.map(function(p,i){
       var head='<div class="presta-head" onclick="togglePresta('+i+')">'+icon(p.on?'checkbox':'square',22,p.on?STATUS.done.fg:'var(--text3)')+'<span class="pl">'+p.n+'</span></div>';
       var detail = p.on ? '<div class="presta-detail"><div class="opt">Détail (facultatif)</div><input inputmode="numeric" placeholder="'+p.hint+'" value="'+(p.detail||'').replace(/"/g,'&quot;')+'" oninput="setDetail('+i+',this.value)"/></div>' : '';
       return '<div class="presta-wrap'+(p.on?' on':'')+'">'+head+detail+'</div>';
     }).join('')+
-    '<button class="btn-clay" style="margin-top:14px" onclick="closeCreate()">Créer le chantier</button>'+
+    '<button class="btn-clay" style="margin-top:14px" onclick="createChantier()">Créer le chantier</button>'+
     '</div>';
   document.getElementById('modal-body').innerHTML=body;
 }
