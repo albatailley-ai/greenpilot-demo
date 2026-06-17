@@ -139,7 +139,14 @@
   .switch .knob{position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:9px; background:#fff; transition:left .15s; box-shadow:0 1px 2px rgba(0,0,0,.2);}
   .switch.on .knob{left:21px;}
   .unit-chip{font-size:11px; color:var(--text2); background:var(--surface2); border-radius:999px; padding:2px 9px; font-weight:600;}
-  .sub-head{display:flex; align-items:center; gap:8px; padding-bottom:10px;}
+  .sub-head{display:flex; align-items:center; gap:6px; background:var(--pineLight); border-radius:var(--r-md); padding:8px 10px; margin-bottom:14px;}
+  .back-btn{width:34px; height:34px; border-radius:8px; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .1s;}
+  .back-btn:active{transform:scale(.9);}
+  .wk-nav{width:36px; height:34px; border-radius:8px; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .1s;}
+  .wk-nav:active{transform:scale(.88);}
+  .carte-filter{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
+  .carte-filter .dt-input{height:42px;}
+  .carte-filter .cf-clear{height:42px; padding:0 12px; border-radius:var(--r-md); border:1px solid var(--border2); background:var(--surface); font-size:13px; font-weight:600; color:var(--text2); cursor:pointer; font-family:inherit; white-space:nowrap;}
   .plan{border:1px solid var(--border); border-radius:var(--r-lg); padding:15px; margin-bottom:10px; background:var(--surface);}
   .plan.cur{border:2px solid var(--pine);}
   .plan .pname{font-size:16px; font-weight:700;}
@@ -277,19 +284,20 @@ function icon(name, size, color){
 /* ----- données fictives (calquées sur le mock de l'app) ----- */
 var WEEK = [{d:15,wd:'lun'},{d:16,wd:'mar'},{d:17,wd:'mer'},{d:18,wd:'jeu'},{d:19,wd:'ven'},{d:20,wd:'sam'},{d:21,wd:'dim'}];
 var WD_FULL = {lun:'Lundi',mar:'Mardi',mer:'Mercredi',jeu:'Jeudi',ven:'Vendredi',sam:'Samedi',dim:'Dimanche'};
-var DAYS_WITH = [16,17,18,19];
+var DAYS_WITH=[];
+var TODAY='2026-06-17';
 var CH = {
-  16:[{id:'c-petit',name:'Mme Petit',addr:'Gastes · entretien',status:'termine',time:'15:00'}],
-  17:[
+  '2026-06-16':[{id:'c-petit',name:'Mme Petit',addr:'Gastes · entretien',status:'termine',time:'15:00'}],
+  '2026-06-17':[
     {id:'c-martin',name:'Mme Martin',addr:'Biscarrosse · entretien',status:'en_cours',time:'09:00'},
     {id:'c-dupont',name:'M. Dupont',addr:'Parentis · taille',status:'planifie',time:'11:00'},
     {id:'c-pins',name:'Copro Les Pins',addr:'Biscarrosse · entretien',status:'planifie',time:'14:00'}
   ],
-  18:[
+  '2026-06-18':[
     {id:'c-martin2',name:'Mme Martin',addr:'Taille des lauriers (reportée)',status:'planifie',time:'08:30'},
     {id:'c-bernard',name:'M. Bernard',addr:'Sanguinet · débroussaillage',status:'planifie',time:'10:00'}
   ],
-  19:[{id:'c-roux',name:'M. Roux',addr:'Biscarrosse · devis clôture',status:'planifie',time:'14:00'}]
+  '2026-06-19':[{id:'c-roux',name:'M. Roux',addr:'Biscarrosse · devis clôture',status:'planifie',time:'14:00'}]
 };
 var BASE_TASKS = {
   'c-martin':[
@@ -314,6 +322,14 @@ var NEXT = {a_faire:'fait', fait:'reporte', reporte:'a_faire'};
 // Créneaux de la journée (lignes de la grille agenda)
 var BANDS=[{key:'matin',label:'Matin',time:'8h–12h'},{key:'aprem',label:'Après-midi',time:'13h–17h'},{key:'soir',label:'Soir',time:'après 17h'}];
 function bandOf(t){ var h=parseInt(t,10); return h<12?'matin':(h<17?'aprem':'soir'); }
+var WD3=['dim','lun','mar','mer','jeu','ven','sam'];
+var MONTHS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+function isoOf(dt){ return dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate()); }
+function weekDates(startIso){ var s=new Date(startIso+'T00:00:00'); var a=[]; for(var i=0;i<7;i++){ var d=new Date(s); d.setDate(s.getDate()+i); a.push({iso:isoOf(d), d:d.getDate(), wd:WD3[d.getDay()], m:d.getMonth(), y:d.getFullYear()}); } return a; }
+function mondayOf(iso){ var d=new Date(iso+'T00:00:00'); var dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return isoOf(d); }
+function shiftWeek(n){ var d=new Date(state.weekStart+'T00:00:00'); d.setDate(d.getDate()+n*7); state.weekStart=isoOf(d); render(); }
+function fmtDate(iso){ var d=new Date(iso+'T00:00:00'); return WD3[d.getDay()]+'. '+d.getDate()+' '+MONTHS[d.getMonth()]; }
+function dateOf(id){ for(var k in CH){ if(CH[k] && CH[k].some(function(c){return c.id===id;})) return k; } return state.createDate||TODAY; }
 
 // Bibliothèque de prestations (écran Profil > Mes prestations)
 var PRESTATIONS=[
@@ -347,7 +363,8 @@ function chantierById(id){
 /* ----- état ----- */
 var state = {
   screen:'connexion', daySel:2, monthSel:17, chantier:null, tasks:{}, pw1:false, pw2:false,
-  filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null, createDay:17, createBand:'matin',
+  filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
+  weekStart:'2026-06-15', createDate:'2026-06-17', createBand:'matin', carteDate:'',
   presta:[
     {n:'Tonte pelouse',on:true,hint:'Surface (m²)',detail:''},
     {n:'Taille de haie',on:true,hint:'Longueur (mètres)',detail:''},
@@ -380,7 +397,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.3';
+var APP_VERSION='1.4';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -401,20 +418,20 @@ function checkUpdate(){
 function renderBanner(){ var b=document.getElementById('ubanner'); if(b) b.style.display='none'; checkUpdate(); setInterval(checkUpdate, 60000); }
 function updateApp(){ location.replace(location.pathname+'?v='+Date.now()); }
 function dismissBanner(v){ try{ sessionStorage.setItem('gp_skip',v||''); }catch(e){} var b=document.getElementById('ubanner'); if(b) b.style.display='none'; }
-function openCreate(day, band){ state.createDay=day||17; state.createBand=band||'matin'; document.getElementById('modal').classList.add('show'); renderModal(); }
+function openCreate(dateIso, band){ state.createDate=dateIso||state.weekStart||TODAY; state.createBand=band||'matin'; document.getElementById('modal').classList.add('show'); renderModal(); }
 function closeCreate(){ document.getElementById('modal').classList.remove('show'); }
 var newSeq=0;
 function unitOf(label){ for(var i=0;i<PRESTATIONS.length;i++){ if(PRESTATIONS[i].n===label) return PRESTATIONS[i].u; } return ''; }
 function createChantier(){
   var cn=((document.getElementById('newClient')||{}).value||'').trim()||'Nouveau chantier';
   var ad=((document.getElementById('newAddr')||{}).value||'').trim();
-  var dateStr=((document.getElementById('newDate')||{}).value)||('2026-06-'+pad2(state.createDay||17));
+  var dateStr=((document.getElementById('newDate')||{}).value)||state.createDate||TODAY;
   var band=((document.getElementById('newBand')||{}).value)||state.createBand||'matin';
-  var day=parseInt(dateStr.split('-')[2],10); if(isNaN(day)||day<1||day>30) day=state.createDay||17;
   var id='new'+(++newSeq);
   var ch={id:id, name:cn, addr:ad, status:'planifie', time:bandTime(band)};
-  if(!CH[day]) CH[day]=[];
-  CH[day].push(ch);
+  if(!CH[dateStr]) CH[dateStr]=[];
+  CH[dateStr].push(ch);
+  state.weekStart=mondayOf(dateStr);
   var tl=[]; state.presta.forEach(function(p){ if(p.on){ tl.push({id:'t'+(++taskSeq), label:p.n, qty:(p.detail||''), unit:unitOf(p.n), status:'a_faire'}); } });
   state.tasks[id]=tl;
   DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
@@ -434,19 +451,16 @@ function pickAddr(c){ var inp=document.getElementById('newAddr'); if(inp) inp.va
 function askDelete(id){ var c=chantierById(id); if(!c) return; showConfirm('Supprimer ce chantier ?','<b>'+c.name+'</b><br><span style="color:var(--text3)">Cette action est définitive.</span>','Supprimer',function(){ deleteChantier(id); }, true); }
 function deleteChantier(id){ for(var k in CH){ if(CH[k]) CH[k]=CH[k].filter(function(c){return c.id!==id;}); } delete state.tasks[id]; delete state.archived[id]; DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number); go('chantiers'); }
 function pad2(n){ return (n<10?'0':'')+n; }
-function dayOf(id){ for(var k in CH){ if(CH[k] && CH[k].some(function(c){return c.id===id;})) return parseInt(k,10); } return state.createDay||17; }
 function bandOptions(sel){ return BANDS.map(function(b){return '<option value="'+b.key+'"'+(b.key===sel?' selected':'')+'>'+b.label+'</option>';}).join(''); }
 function setSchedule(id, dateStr, band){
   var ch=chantierById(id); if(!ch) return;
-  var curDay=dayOf(id), curBand=bandOf(ch.time);
-  var newDay = dateStr ? parseInt(dateStr.split('-')[2],10) : curDay;
-  if(isNaN(newDay)||newDay<1||newDay>30) newDay=curDay;
+  var curIso=dateOf(id), curBand=bandOf(ch.time);
+  var newIso = dateStr || curIso;
   var newBand = band || curBand;
-  if(CH[curDay]) CH[curDay]=CH[curDay].filter(function(c){return c.id!==id;});
+  if(CH[curIso]) CH[curIso]=CH[curIso].filter(function(c){return c.id!==id;});
   ch.time=bandTime(newBand);
-  if(!CH[newDay]) CH[newDay]=[];
-  CH[newDay].push(ch);
-  DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
+  if(!CH[newIso]) CH[newIso]=[];
+  CH[newIso].push(ch);
   render();
 }
 function login(){ go('agenda'); }
@@ -482,13 +496,13 @@ function chipDown(e, id, day){
     if(!moved){ openChantier(id); return; }
     if(ghost) ghost.remove(); chip.style.opacity='';
     var cell=cellAt(ev.clientX,ev.clientY);
-    if(cell){ var toDay=parseInt(cell.getAttribute('data-day'),10), toBand=cell.getAttribute('data-band'); var ch=chantierById(id);
-      if(ch && toDay && (toDay!==day || bandOf(ch.time)!==toBand)){ askMove(id, day, toDay, toBand); } }
+    if(cell){ var toIso=cell.getAttribute('data-date'), toBand=cell.getAttribute('data-band'); var ch=chantierById(id);
+      if(ch && toIso && (toIso!==day || bandOf(ch.time)!==toBand)){ askMove(id, day, toIso, toBand); } }
   }
   document.addEventListener('pointermove',move,{passive:false});
   document.addEventListener('pointerup',up);
 }
-function dayLabel(d){ for(var i=0;i<WEEK.length;i++){ if(WEEK[i].d===d) return WD_FULL[WEEK[i].wd]+' '+d; } return ''+d; }
+function dayLabel(iso){ return fmtDate(iso); }
 function bandLabel(k){ for(var i=0;i<BANDS.length;i++){ if(BANDS[i].key===k) return BANDS[i].label; } return k; }
 function bandTime(k){ return k==='matin'?'09:00':(k==='aprem'?'14:00':'18:00'); }
 function askMove(id, fromDay, toDay, toBand){
@@ -497,13 +511,12 @@ function askMove(id, fromDay, toDay, toBand){
   var to=dayLabel(toDay)+' · '+bandLabel(toBand);
   showConfirm('Déplacer le chantier ?', '<b>'+ch.name+'</b><br><span style="color:var(--text3)">'+from+'</span> &nbsp;→&nbsp; <b style="color:var(--pine)">'+to+'</b>', 'Déplacer', function(){ moveChantier(id, fromDay, toDay, toBand); });
 }
-function moveChantier(id, fromDay, toDay, toBand){
+function moveChantier(id, fromIso, toIso, toBand){
   var ch=chantierById(id); if(!ch) return;
-  if(CH[fromDay]) CH[fromDay]=CH[fromDay].filter(function(c){return c.id!==id;});
+  if(CH[fromIso]) CH[fromIso]=CH[fromIso].filter(function(c){return c.id!==id;});
   ch.time=bandTime(toBand);
-  if(!CH[toDay]) CH[toDay]=[];
-  CH[toDay].push(ch);
-  DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
+  if(!CH[toIso]) CH[toIso]=[];
+  CH[toIso].push(ch);
   render();
 }
 var confirmCb=null;
@@ -525,6 +538,7 @@ function rouvrir(id){ var c=chantierById(id); if(c) c.status='en_cours'; render(
 function commentTask(id){ state.noteFor=(state.noteFor===id?null:id); render(); if(state.noteFor===id){ var el=document.querySelector('.tasknote-edit input'); if(el) el.focus(); } }
 function setTaskNote(id, val){ var ts=tasksFor(state.chantier); for(var i=0;i<ts.length;i++){ if(ts[i].id===id){ ts[i].note=val; } } }
 function setObs(id, val){ state.obs[id]=val; }
+function setCarteDate(v){ state.carteDate=v; render(); }
 function openDevis(id){ state.chantier=id; go('devis'); }
 var PRICES={'Tonte pelouse':45,'Tonte + ramassage':60,'Taille de haie':25,'Taille des lauriers':60,'Désherbage massif':40,'Débroussaillage':90,'Évacuation déchets':50,'Évacuation déchets verts':50,'Élagage':120,'Taille d’arbuste':25,'Scarification':50,'Plantation':20,'Création de massif':80,'Soufflage / nettoyage':20,'Abattage':180};
 function devisPrice(cid, tid){ if(state.devis[cid] && state.devis[cid][tid]!=null) return state.devis[cid][tid]; var ts=tasksFor(cid); for(var i=0;i<ts.length;i++){ if(ts[i].id===tid){ return PRICES[ts[i].label]!=null?PRICES[ts[i].label]:50; } } return 50; }
@@ -565,30 +579,38 @@ function togglePw(id, el){
 }
 
 function viewAgenda(){
-  var headers='<div></div>'+WEEK.map(function(x){
-    var today=x.d===17;
+  var days=weekDates(state.weekStart);
+  var headers='<div></div>'+days.map(function(x){
+    var today=x.iso===TODAY;
     return '<div class="gh'+(today?' today':'')+'"><div class="wd">'+x.wd.toUpperCase()+'</div><div class="dn">'+x.d+'</div></div>';
   }).join('');
   var rows=BANDS.map(function(b){
     var label='<div class="glabel"><b>'+b.label+'</b><span>'+b.time+'</span></div>';
-    var cells=WEEK.map(function(x){
-      var list=(CH[x.d]||[]).filter(function(ch){return !state.archived[ch.id] && bandOf(ch.time)===b.key;});
-      if(!list.length){ return '<div class="gcell empty" data-day="'+x.d+'" data-band="'+b.key+'" onclick="openCreate('+x.d+',\''+b.key+'\')"><span class="plus">+</span></div>'; }
-      return '<div class="gcell" data-day="'+x.d+'" data-band="'+b.key+'">'+list.map(function(ch){
+    var cells=days.map(function(x){
+      var list=(CH[x.iso]||[]).filter(function(ch){return !state.archived[ch.id] && bandOf(ch.time)===b.key;});
+      if(!list.length){ return '<div class="gcell empty" data-date="'+x.iso+'" data-band="'+b.key+'" onclick="openCreate(\''+x.iso+'\',\''+b.key+'\')"><span class="plus">+</span></div>'; }
+      return '<div class="gcell" data-date="'+x.iso+'" data-band="'+b.key+'">'+list.map(function(ch){
         var c=STATUS[STATUS_KEY[ch.status]];
-        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\','+x.d+')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
+        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\',\''+x.iso+'\')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
       }).join('')+'</div>';
     }).join('');
     return label+cells;
   }).join('');
+  var f=days[0], l=days[6];
+  var range = f.m===l.m ? (f.d+' – '+l.d+' '+MONTHS[l.m]+' '+l.y) : (f.d+' '+MONTHS[f.m]+' – '+l.d+' '+MONTHS[l.m]+' '+l.y);
   var legend='<div class="row" style="gap:13px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--text2);">'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.todo.fg+'"></span>À venir</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.soon.fg+'"></span>En cours</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.done.fg+'"></span>Terminé</span>'+
-    '<span style="color:var(--text3)">· glisse une pastille pour déplacer un chantier · case hachurée = créneau libre</span></div>';
+    '<span style="color:var(--text3)">· glisse une pastille pour déplacer · case hachurée = libre</span></div>';
   return '<div class="pad">'+
-    '<div class="row between" style="padding-bottom:10px;"><div><div class="h-sub">Juin 2026 · semaine</div><div class="h-title">Agenda</div></div>'+
+    '<div class="row between" style="padding-bottom:8px;"><div class="h-title">Agenda</div>'+
     '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
+    '<div class="row between" style="margin-bottom:10px;background:var(--pineLight);border-radius:var(--r-md);padding:4px 6px;">'+
+      '<button class="wk-nav" onclick="shiftWeek(-1)" aria-label="Semaine précédente">'+icon('back',20,'var(--pineDark)')+'</button>'+
+      '<div style="font-size:14px;font-weight:700;color:var(--pineDark);">'+range+'</div>'+
+      '<button class="wk-nav" onclick="shiftWeek(1)" aria-label="Semaine suivante">'+icon('chev',20,'var(--pineDark)')+'</button>'+
+    '</div>'+
     '<div class="grid-wrap"><div class="grid">'+headers+rows+'</div></div>'+
     legend+'</div>';
 }
@@ -615,10 +637,10 @@ function viewFiche(){
     '</div>';
   }).join('');
   return '<div class="pad">'+
-    '<div class="row" style="gap:8px;padding-bottom:6px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="go(\'agenda\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:17px;font-weight:600;">Fiche chantier</div></div>'+
+    subHead('Fiche chantier','agenda')+
     '<div class="card" style="border-left-width:3px;border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';cursor:default;margin:6px 0 16px;">'+
       '<div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div>'+
-    '<div class="sched"><div class="sched-lbl">Date de début</div><div class="row" style="gap:8px;"><input type="date" class="dt-input" min="2026-06-01" max="2026-06-30" value="2026-06-'+pad2(dayOf(c.id))+'" onchange="setSchedule(\''+c.id+'\',this.value,null)"/><select class="band-sel" onchange="setSchedule(\''+c.id+'\',null,this.value)">'+bandOptions(bandOf(c.time))+'</select></div></div>'+
+    '<div class="sched"><div class="sched-lbl">Date de début</div><div class="row" style="gap:8px;"><input type="date" class="dt-input" min="2026-01-01" max="2027-12-31" value="'+dateOf(c.id)+'" onchange="setSchedule(\''+c.id+'\',this.value,null)"/><select class="band-sel" onchange="setSchedule(\''+c.id+'\',null,this.value)">'+bandOptions(bandOf(c.time))+'</select></div></div>'+
     '<div class="row between" style="margin-bottom:9px;"><div class="muted">Tâches</div><div style="font-size:12px;color:var(--text2);">'+done+' / '+ts.length+' faites</div></div>'+
     rows+
     '<div class="add-task"><input id="newtask" placeholder="Ajouter une tâche…" onkeydown="if(event.key===\'Enter\')addTask()"/><button class="add-btn" aria-label="Ajouter la tâche" onclick="addTask()">'+icon('plus',22,'#fff')+'</button></div>'+
@@ -642,7 +664,7 @@ function viewMois(){
   var cells='';
   for(var b=0;b<offset;b++){ cells+='<div></div>'; }
   for(var d=1;d<=30;d++){
-    var sel=d===state.monthSel, has=DAYS_WITH.indexOf(d)>-1, today=d===17;
+    var sel=d===state.monthSel, has=!!(CH['2026-06-'+pad2(d)]&&CH['2026-06-'+pad2(d)].length), today=d===17;
     var bg=sel?'var(--pine)':'transparent';
     var fg=sel?'#fff':(today?'var(--pine)':'var(--text)');
     var dotc=has?(sel?'#fff':'var(--pine)'):'transparent';
@@ -652,14 +674,14 @@ function viewMois(){
   }
   var wd=['L','M','M','J','V','S','D'].map(function(w){return '<div style="text-align:center;font-size:11px;color:var(--text3);padding-bottom:6px;">'+w+'</div>';}).join('');
   var grid='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">'+wd+cells+'</div>';
-  var items=(CH[state.monthSel]||[]).filter(function(c){return !state.archived[c.id];});
+  var items=(CH['2026-06-'+pad2(state.monthSel)]||[]).filter(function(c){return !state.archived[c.id];});
   var label=(state.monthSel===17?"Aujourd'hui · ":'')+state.monthSel+' juin';
   var list=items.length?items.map(function(c){
     var accent=STATUS[STATUS_KEY[c.status]].fg;
     return '<div class="appt"><div class="time">'+c.time+'</div><div class="card" style="border-left-color:'+accent+'" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div></div>';
   }).join(''):'<div class="empty">'+icon('calblank',28,'var(--text3)')+'<div>Aucun chantier ce jour</div></div>';
   return '<div class="pad">'+
-    '<div class="row" style="gap:8px;padding-bottom:10px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="go(\'agenda\')">'+icon('back',24,'var(--text)')+'</div><div><div class="h-sub">Vue mois</div><div style="font-size:20px;font-weight:600;">Juin 2026</div></div></div>'+
+    subHead('Vue mois · Juin 2026','agenda')+
     grid+
     '<div class="muted" style="margin:18px 0 10px;">'+label+'</div>'+
     list+'</div>';
@@ -692,7 +714,7 @@ function viewRapport(){
     return '<div style="padding:8px 0;border-bottom:1px solid var(--border);"><div class="row" style="gap:9px;">'+icon(fait?'checkc':(t.status==='reporte'?'clock':'circle'),18,col)+'<span style="flex:1;font-size:14px;color:var(--text)">'+t.label+'</span>'+(t.unit?'<span style="font-size:12px;color:var(--text2)">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</span>':'')+'</div>'+(t.note?'<div style="font-size:12px;color:var(--text2);font-style:italic;margin:4px 0 0 27px;">“'+t.note+'”</div>':'')+'</div>';
   }).join('');
   return '<div class="pad">'+
-    '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="go(\''+(state.rapportBack||'chantiers')+'\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">Rapport de chantier</div></div>'+
+    subHead('Rapport de chantier', state.rapportBack||'chantiers')+
     '<div class="rep-head"><div style="font-size:18px;font-weight:700;">'+c.name+'</div><div style="font-size:13px;opacity:.92;margin-top:2px;">'+c.addr+'</div><div style="font-size:12px;opacity:.82;margin-top:8px;">Intervention du 17 juin 2026 · GreenPilot</div></div>'+
     '<div class="row between" style="margin-bottom:8px;"><div class="muted">Prestations réalisées</div><div style="font-size:12px;color:var(--text2);">'+done+' / '+ts.length+'</div></div>'+
     '<div class="pbar" style="margin-bottom:14px;"><span style="width:'+pct+'%"></span></div>'+
@@ -720,7 +742,7 @@ function viewDevis(){
   }).join('');
   var tva=Math.round(ht*0.2), ttc=ht+tva;
   return '<div class="pad">'+
-    '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="openChantier(\''+c.id+'\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">Devis</div></div>'+
+    subHead('Devis','fiche')+
     '<div class="card" style="cursor:default;border-left-width:4px;border-left-color:var(--clay);margin-bottom:16px;"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div></div>'+
     '<div class="muted" style="margin-bottom:2px;">Prestations</div>'+
     lines+
@@ -764,14 +786,17 @@ function viewCarte(){
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2f6da8"></span>En cours</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#9c6f1e"></span>À venir</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2e7d32"></span>Terminé</span></div>';
-  var all=[]; for(var k in CH){ CH[k].forEach(function(c){ all.push(c); }); }
-  var list=all.map(function(c){
-    return '<div class="card" style="border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';margin-bottom:9px;border-top-left-radius:var(--r-md);border-bottom-left-radius:var(--r-md);" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div>';
-  }).join('');
+  var cd=state.carteDate;
+  var all=(cd?(CH[cd]||[]).slice():allChantiers()).filter(function(c){return !state.archived[c.id];});
+  var filterBar='<div class="carte-filter"><input type="date" class="dt-input" min="2026-01-01" max="2027-12-31" value="'+(cd||'')+'" onchange="setCarteDate(this.value)"/>'+(cd?'<button class="cf-clear" onclick="setCarteDate(\'\')">Toutes les dates</button>':'<span style="font-size:12px;color:var(--text3)">Toutes les dates</span>')+'</div>';
+  var list=all.length?all.map(function(c){
+    return '<div class="card" style="border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';margin-bottom:9px;border-top-left-radius:var(--r-md);border-bottom-left-radius:var(--r-md);" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+(cd?'':' · '+fmtDate(dateOf(c.id)))+'</div></div>'+statusPill(c.status)+'</div>';
+  }).join(''):'<div class="empty">'+icon('pin',28,'var(--text3)')+'<div>Aucun chantier'+(cd?' le '+fmtDate(cd):'')+'</div></div>';
   return '<div class="pad">'+
     '<div class="h-sub">Votre secteur</div><div class="h-title" style="margin-bottom:12px;">Carte — Landes &amp; Gironde</div>'+
     svg+legend+
-    '<div class="muted" style="margin:16px 0 10px;">Chantiers sur la zone</div>'+list+
+    '<div class="muted" style="margin:16px 0 10px;">'+(cd?'Chantiers du '+fmtDate(cd):'Chantiers sur la zone')+'</div>'+
+    filterBar+list+
     '</div>';
 }
 
@@ -787,7 +812,7 @@ function viewProfil(){
     '</div>';
 }
 function setRow(ic,label,screen){ return '<div class="set-row" style="cursor:pointer" onclick="go(\''+screen+'\')">'+icon(ic,20,'var(--text2)')+'<span class="sl">'+label+'</span>'+icon('chev',20,'var(--text3)')+'</div>'; }
-function subHead(title){ return '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="go(\'profil\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">'+title+'</div></div>'; }
+function subHead(title, back){ back=back||'profil'; return '<div class="sub-head"><button class="back-btn" aria-label="Retour" onclick="go(\''+back+'\')">'+icon('back',22,'var(--pineDark)')+'</button><div style="font-size:17px;font-weight:700;color:var(--pineDark);">'+title+'</div></div>'; }
 
 function viewPrestations(){
   var rows=PRESTATIONS.map(function(p,i){
@@ -834,7 +859,7 @@ function renderModal(){
     '<div class="field">'+icon('pin',19,'var(--text3)')+'<input id="newAddr" placeholder="Adresse" autocomplete="off" oninput="addrInput(this.value)" onfocus="addrInput(this.value)"/></div>'+
     '<div class="addr-suggest" id="addr-suggest"></div>'+
     '<div class="muted" style="margin:10px 0 7px;">Date de début</div>'+
-    '<div class="row" style="gap:8px;margin-bottom:6px;"><input type="date" class="dt-input" id="newDate" min="2026-06-01" max="2026-06-30" value="2026-06-'+pad2(state.createDay||17)+'"/><select class="band-sel" id="newBand">'+bandOptions(state.createBand||'matin')+'</select></div>'+
+    '<div class="row" style="gap:8px;margin-bottom:6px;"><input type="date" class="dt-input" id="newDate" min="2026-01-01" max="2027-12-31" value="'+(state.createDate||TODAY)+'"/><select class="band-sel" id="newBand">'+bandOptions(state.createBand||'matin')+'</select></div>'+
     '<div class="muted" style="margin:10px 0 9px;">Prestations</div>'+
     state.presta.map(function(p,i){
       var head='<div class="presta-head" onclick="togglePresta('+i+')">'+icon(p.on?'checkbox':'square',22,p.on?STATUS.done.fg:'var(--text3)')+'<span class="pl">'+p.n+'</span></div>';
