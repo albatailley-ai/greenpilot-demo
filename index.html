@@ -129,7 +129,7 @@
   .gcell{min-height:76px; border:1px solid var(--border); border-radius:14px; background:var(--surface); display:flex; flex-direction:column; gap:5px; padding:6px;}
   .gcell.empty{border:0; background:repeating-linear-gradient(45deg,#f1ece3,#f1ece3 5px,#faf8f4 5px,#faf8f4 11px); align-items:center; justify-content:center; cursor:pointer;}
   .gcell.empty .plus{color:var(--text3); font-size:22px; font-weight:300; line-height:1;}
-  .gchip{border-radius:10px; padding:6px 8px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; border:1.5px solid; line-height:1.1; transition:transform .1s;}
+  .gchip{border-radius:10px; padding:6px 8px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; cursor:grab; border:1.5px solid; line-height:1.1; transition:transform .1s; touch-action:none; user-select:none;}
   .gchip:active{transform:scale(.96);}
   .gchip .gdot{width:7px; height:7px; border-radius:4px; flex:none;}
   .gchip .gname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -147,6 +147,13 @@
   .plan .pdesc{font-size:12px; color:var(--text2); margin-top:4px;}
   .plan .pbadge{font-size:11px; font-weight:700; color:var(--pineDark); background:var(--pineLight); border-radius:999px; padding:3px 10px;}
   .plan .pbtn{margin-top:11px; height:40px; border-radius:var(--r-md); border:1px solid var(--pine); background:transparent; color:var(--pine); font-weight:600; font-size:13px; width:100%; cursor:pointer; font-family:inherit;}
+  /* glisser-déposer + confirmation */
+  .gcell.drop{outline:2px dashed var(--pine); outline-offset:-2px; background:var(--pineLight);}
+  .confirm{position:absolute; inset:0; background:rgba(20,20,18,.4); display:none; align-items:flex-end; z-index:40;}
+  .confirm.show{display:flex;}
+  .confirm .sheet{background:var(--surface); width:100%; border-top-left-radius:20px; border-top-right-radius:20px; padding:18px 18px 22px; box-shadow:0 -8px 30px rgba(0,0,0,.22);}
+  .cf-cancel{flex:1; height:46px; border-radius:var(--r-md); border:1px solid var(--border2); background:transparent; color:var(--text2); font-weight:600; font-size:14px; cursor:pointer; font-family:inherit;}
+  .cf-ok{flex:1; height:46px; border-radius:var(--r-md); border:0; background:var(--pine); color:#fff; font-weight:600; font-size:14px; cursor:pointer; font-family:inherit;}
 </style>
 </head>
 <body>
@@ -159,6 +166,9 @@
     <div class="modal" id="modal">
       <div class="scroll" id="modal-body"></div>
     </div>
+
+    <!-- feuille de confirmation -->
+    <div class="confirm" id="confirm"></div>
   </div>
 
 <script>
@@ -310,7 +320,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='0.7';
+var APP_VERSION='0.8';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -344,6 +354,60 @@ function selectMonthDay(d){
 
 /* ----- rendu ----- */
 function statusPill(st){ var k=STATUS_KEY[st], c=STATUS[k]; return '<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+icon(c.icon,12,c.fg)+'<span>'+c.label+'</span></span>'; }
+
+/* ----- glisser-déposer un chantier (doigt + souris) ----- */
+function cellAt(x,y){ var el=document.elementFromPoint(x,y); return el?el.closest('.gcell'):null; }
+function clearHighlight(){ var p=document.querySelector('.gcell.drop'); if(p) p.classList.remove('drop'); }
+function chipDown(e, id, day){
+  e.preventDefault();
+  var chip=e.currentTarget, sx=e.clientX, sy=e.clientY, moved=false, ghost=null;
+  function move(ev){
+    if(!moved && (Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy))>8){
+      moved=true;
+      ghost=chip.cloneNode(true);
+      Object.assign(ghost.style,{position:'fixed',pointerEvents:'none',zIndex:'90',opacity:'.92',margin:'0',width:chip.offsetWidth+'px',boxShadow:'0 10px 22px rgba(0,0,0,.28)'});
+      document.body.appendChild(ghost); chip.style.opacity='.35'; document.body.style.userSelect='none';
+    }
+    if(moved){ ev.preventDefault(); ghost.style.left=(ev.clientX-ghost.offsetWidth/2)+'px'; ghost.style.top=(ev.clientY-18)+'px'; clearHighlight(); var c=cellAt(ev.clientX,ev.clientY); if(c) c.classList.add('drop'); }
+  }
+  function up(ev){
+    document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up);
+    document.body.style.userSelect=''; clearHighlight();
+    if(!moved){ openChantier(id); return; }
+    if(ghost) ghost.remove(); chip.style.opacity='';
+    var cell=cellAt(ev.clientX,ev.clientY);
+    if(cell){ var toDay=parseInt(cell.getAttribute('data-day'),10), toBand=cell.getAttribute('data-band'); var ch=chantierById(id);
+      if(ch && toDay && (toDay!==day || bandOf(ch.time)!==toBand)){ askMove(id, day, toDay, toBand); } }
+  }
+  document.addEventListener('pointermove',move,{passive:false});
+  document.addEventListener('pointerup',up);
+}
+function dayLabel(d){ for(var i=0;i<WEEK.length;i++){ if(WEEK[i].d===d) return WD_FULL[WEEK[i].wd]+' '+d; } return ''+d; }
+function bandLabel(k){ for(var i=0;i<BANDS.length;i++){ if(BANDS[i].key===k) return BANDS[i].label; } return k; }
+function bandTime(k){ return k==='matin'?'09:00':(k==='aprem'?'14:00':'18:00'); }
+function askMove(id, fromDay, toDay, toBand){
+  var ch=chantierById(id); if(!ch) return;
+  var from=dayLabel(fromDay)+' · '+bandLabel(bandOf(ch.time));
+  var to=dayLabel(toDay)+' · '+bandLabel(toBand);
+  showConfirm('Déplacer le chantier ?', '<b>'+ch.name+'</b><br><span style="color:var(--text3)">'+from+'</span> &nbsp;→&nbsp; <b style="color:var(--pine)">'+to+'</b>', 'Déplacer', function(){ moveChantier(id, fromDay, toDay, toBand); });
+}
+function moveChantier(id, fromDay, toDay, toBand){
+  var ch=chantierById(id); if(!ch) return;
+  if(CH[fromDay]) CH[fromDay]=CH[fromDay].filter(function(c){return c.id!==id;});
+  ch.time=bandTime(toBand);
+  if(!CH[toDay]) CH[toDay]=[];
+  CH[toDay].push(ch);
+  DAYS_WITH=Object.keys(CH).filter(function(k){return CH[k]&&CH[k].length;}).map(Number);
+  render();
+}
+var confirmCb=null;
+function showConfirm(title, detailHtml, okLabel, cb){
+  confirmCb=cb; var el=document.getElementById('confirm');
+  el.innerHTML='<div class="sheet"><div style="font-size:16px;font-weight:700;margin-bottom:8px;">'+title+'</div><div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:18px;">'+detailHtml+'</div><div class="row" style="gap:10px;"><button class="cf-cancel" onclick="closeConfirm()">Annuler</button><button class="cf-ok" onclick="confirmOk()">'+okLabel+'</button></div></div>';
+  el.classList.add('show');
+}
+function closeConfirm(){ var el=document.getElementById('confirm'); if(el) el.classList.remove('show'); confirmCb=null; }
+function confirmOk(){ var cb=confirmCb; closeConfirm(); if(cb) cb(); }
 
 function viewConnexion(){
   return '<div class="pad center" style="min-height:100%;justify-content:center;padding:24px;">'+
@@ -387,10 +451,10 @@ function viewAgenda(){
     var label='<div class="glabel"><b>'+b.label+'</b><span>'+b.time+'</span></div>';
     var cells=WEEK.map(function(x){
       var list=(CH[x.d]||[]).filter(function(ch){return bandOf(ch.time)===b.key;});
-      if(!list.length){ return '<div class="gcell empty" onclick="openCreate()"><span class="plus">+</span></div>'; }
-      return '<div class="gcell">'+list.map(function(ch){
+      if(!list.length){ return '<div class="gcell empty" data-day="'+x.d+'" data-band="'+b.key+'" onclick="openCreate()"><span class="plus">+</span></div>'; }
+      return '<div class="gcell" data-day="'+x.d+'" data-band="'+b.key+'">'+list.map(function(ch){
         var c=STATUS[STATUS_KEY[ch.status]];
-        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onclick="openChantier(\''+ch.id+'\')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
+        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\','+x.d+')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
       }).join('')+'</div>';
     }).join('');
     return label+cells;
@@ -399,7 +463,7 @@ function viewAgenda(){
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.todo.fg+'"></span>À venir</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.soon.fg+'"></span>En cours</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.done.fg+'"></span>Terminé</span>'+
-    '<span style="color:var(--text3)">· case hachurée = créneau libre, tape pour ajouter</span></div>';
+    '<span style="color:var(--text3)">· glisse une pastille pour déplacer un chantier · case hachurée = créneau libre</span></div>';
   return '<div class="pad">'+
     '<div class="row between" style="padding-bottom:10px;"><div><div class="h-sub">Juin 2026 · semaine</div><div class="h-title">Agenda</div></div>'+
     '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
