@@ -63,7 +63,7 @@
   .pill{border-radius:999px; padding:4px 10px; font-size:11px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;}
   .empty{display:flex; flex-direction:column; align-items:center; padding:48px 0; color:var(--text3); gap:8px; font-size:13px;}
   /* task */
-  .task{display:flex; align-items:center; gap:11px; border-radius:var(--r-md); padding:12px; margin-bottom:8px; cursor:pointer;}
+  .task{display:flex; align-items:center; gap:11px; border-radius:var(--r-md); padding:12px; margin-bottom:0; cursor:pointer;}
   .task .lbl{font-size:14px; color:var(--text);}
   .task .qty{font-size:11px; color:var(--text2); margin-top:1px;}
   .task .st{font-size:11px; font-weight:600;}
@@ -174,6 +174,23 @@
   .rep-photos{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .rep-photo{aspect-ratio:4/3; border:1.5px dashed var(--border2); border-radius:var(--r-md); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--text3); font-size:12px; font-weight:600; background:var(--surface);}
   .rep-btn{height:50px; border-radius:var(--r-md); border:0; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:8px;}
+  /* commentaires de tâche, observations, devis */
+  .taskwrap{margin-bottom:8px;}
+  .task-ic{background:transparent; border:0; cursor:pointer; padding:4px; display:flex; border-radius:8px; transition:transform .1s;}
+  .task-ic:active{transform:scale(.85);}
+  .tasknote{font-size:12px; color:var(--text2); font-style:italic; padding:6px 12px 0 46px;}
+  .tasknote-edit{padding:7px 12px 0 46px;}
+  .tasknote-edit input{width:100%; height:38px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); padding:0 11px; font-size:13px; color:var(--text); font-family:inherit; outline:0;}
+  .obs{width:100%; min-height:74px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:10px 12px; font-size:14px; font-family:inherit; color:var(--text); outline:0; resize:vertical;}
+  .obs:focus{border-color:var(--pine);}
+  .dline{display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--border);}
+  .dline .dl-main{flex:1;}
+  .dline .dl-name{font-size:14px; color:var(--text);}
+  .dline .dl-sub{font-size:11px; color:var(--text2); margin-top:1px;}
+  .dprice{display:flex; align-items:center; gap:3px; background:var(--surface2); border-radius:8px; padding:0 9px; height:38px;}
+  .dprice input{width:52px; border:0; background:transparent; text-align:right; font-size:14px; font-weight:600; color:var(--text); font-family:inherit; outline:0;}
+  .dtot-row{display:flex; justify-content:space-between; padding:6px 0; font-size:14px;}
+  .dtot-row.grand{font-size:17px; font-weight:700; color:var(--pine); border-top:1px solid var(--border2); margin-top:6px; padding-top:10px;}
 </style>
 </head>
 <body>
@@ -232,7 +249,9 @@ var I = {
   send:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
   image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
   archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
-  filter:'<path d="M3 5h18M6 12h12M10 19h4"/>'
+  filter:'<path d="M3 5h18M6 12h12M10 19h4"/>',
+  message:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  receipt:'<path d="M5 3v18l2-1 2 1 2-1 2 1 2-1 2 1V3l-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8M8 12h8M8 16h5"/>'
 };
 function icon(name, size, color){
   size = size||22; color = color||'currentColor';
@@ -312,7 +331,7 @@ function chantierById(id){
 /* ----- état ----- */
 var state = {
   screen:'connexion', daySel:2, monthSel:17, chantier:null, tasks:{}, pw1:false, pw2:false,
-  filter:'tous', archived:{}, rapportBack:'chantiers',
+  filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
   presta:[
     {n:'Tonte pelouse',on:true,hint:'Surface (m²)',detail:''},
     {n:'Taille de haie',on:true,hint:'Longueur (mètres)',detail:''},
@@ -345,7 +364,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='0.9';
+var APP_VERSION='1.0';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -439,6 +458,16 @@ function setFilter(f){ state.filter=f; render(); }
 function archiveChantier(id){ state.archived[id]=true; render(); }
 function unarchive(id){ delete state.archived[id]; render(); }
 function openRapport(id, back){ state.chantier=id; state.rapportBack=back||'chantiers'; go('rapport'); }
+function terminerChantier(id){ var c=chantierById(id); if(c) c.status='termine'; render(); }
+function rouvrir(id){ var c=chantierById(id); if(c) c.status='en_cours'; render(); }
+function commentTask(id){ state.noteFor=(state.noteFor===id?null:id); render(); if(state.noteFor===id){ var el=document.querySelector('.tasknote-edit input'); if(el) el.focus(); } }
+function setTaskNote(id, val){ var ts=tasksFor(state.chantier); for(var i=0;i<ts.length;i++){ if(ts[i].id===id){ ts[i].note=val; } } }
+function setObs(id, val){ state.obs[id]=val; }
+function openDevis(id){ state.chantier=id; go('devis'); }
+var PRICES={'Tonte pelouse':45,'Tonte + ramassage':60,'Taille de haie':25,'Taille des lauriers':60,'Désherbage massif':40,'Débroussaillage':90,'Évacuation déchets':50,'Évacuation déchets verts':50,'Élagage':120,'Taille d’arbuste':25,'Scarification':50,'Plantation':20,'Création de massif':80,'Soufflage / nettoyage':20,'Abattage':180};
+function devisPrice(cid, tid){ if(state.devis[cid] && state.devis[cid][tid]!=null) return state.devis[cid][tid]; var ts=tasksFor(cid); for(var i=0;i<ts.length;i++){ if(ts[i].id===tid){ return PRICES[ts[i].label]!=null?PRICES[ts[i].label]:50; } } return 50; }
+function setDevisPrice(cid, tid, val){ if(!state.devis[cid]) state.devis[cid]={}; var n=parseInt(val,10); state.devis[cid][tid]=isNaN(n)?0:n; var ts=tasksFor(cid), ht=0; ts.forEach(function(t){ ht+=devisPrice(cid,t.id); }); var tva=Math.round(ht*0.2); setText('htval',ht+' €'); setText('tvaval',tva+' €'); setText('ttcval',(ht+tva)+' €'); }
+function setText(id, txt){ var e=document.getElementById(id); if(e) e.textContent=txt; }
 
 function viewConnexion(){
   return '<div class="pad center" style="min-height:100%;justify-content:center;padding:24px;">'+
@@ -508,12 +537,20 @@ function viewFiche(){
   var done=ts.filter(function(t){return t.status==='fait';}).length;
   var rows=ts.map(function(t){
     var m=TASK_META[t.status], col=STATUS[m.key];
-    return '<div class="task" style="background:'+col.bg+'" onclick="cycleTask(\''+t.id+'\')">'+
-      icon(m.icon,22,col.fg)+
-      '<div style="flex:1"><div class="lbl'+(t.status==='fait'?' strike':'')+'">'+t.label+'</div>'+
-      (t.unit?'<div class="qty">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</div>':'')+'</div>'+
-      '<div class="st" style="color:'+col.fg+'">'+m.label+'</div>'+
-      '<button class="task-del" aria-label="Retirer la tâche" onclick="event.stopPropagation();removeTask(\''+t.id+'\')">'+icon('x',18,'var(--text3)')+'</button></div>';
+    var noteCol=t.note?STATUS.soon.fg:'var(--text3)';
+    var noteArea=(state.noteFor===t.id)
+      ? '<div class="tasknote-edit"><input placeholder="Commentaire (ex. à refaire au printemps)…" value="'+(t.note||'').replace(/"/g,'&quot;')+'" oninput="setTaskNote(\''+t.id+'\',this.value)" onkeydown="if(event.key===\'Enter\')commentTask(\''+t.id+'\')"/></div>'
+      : (t.note?'<div class="tasknote">“'+t.note+'”</div>':'');
+    return '<div class="taskwrap">'+
+      '<div class="task" style="background:'+col.bg+'" onclick="cycleTask(\''+t.id+'\')">'+
+        icon(m.icon,22,col.fg)+
+        '<div style="flex:1"><div class="lbl'+(t.status==='fait'?' strike':'')+'">'+t.label+'</div>'+
+        (t.unit?'<div class="qty">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</div>':'')+'</div>'+
+        '<div class="st" style="color:'+col.fg+'">'+m.label+'</div>'+
+        '<button class="task-ic" aria-label="Commentaire" onclick="event.stopPropagation();commentTask(\''+t.id+'\')">'+icon('message',17,noteCol)+'</button>'+
+        '<button class="task-ic" aria-label="Retirer la tâche" onclick="event.stopPropagation();removeTask(\''+t.id+'\')">'+icon('x',18,'var(--text3)')+'</button>'+
+      '</div>'+noteArea+
+    '</div>';
   }).join('');
   return '<div class="pad">'+
     '<div class="row" style="gap:8px;padding-bottom:6px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="go(\'agenda\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:17px;font-weight:600;">Fiche chantier</div></div>'+
@@ -523,9 +560,14 @@ function viewFiche(){
     rows+
     '<div class="add-task"><input id="newtask" placeholder="Ajouter une tâche…" onkeydown="if(event.key===\'Enter\')addTask()"/><button class="add-btn" aria-label="Ajouter la tâche" onclick="addTask()">'+icon('plus',22,'#fff')+'</button></div>'+
     '<div style="display:flex;gap:10px;margin-top:16px;">'+
-      '<button class="rep-btn" style="flex:1;background:var(--pineLight);color:var(--pineDark)" onclick="openRapport(\''+c.id+'\',\'fiche\')">'+icon('clip',18,'var(--pineDark)')+'Voir le rapport</button>'+
-      (c.status==='termine'?(state.archived[c.id]?'<button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text2)" onclick="unarchive(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Désarchiver</button>':'<button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text2)" onclick="archiveChantier(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Archiver</button>'):'')+
+      '<button class="rep-btn" style="flex:1;background:var(--pineLight);color:var(--pineDark)" onclick="openRapport(\''+c.id+'\',\'fiche\')">'+icon('clip',18,'var(--pineDark)')+'Rapport</button>'+
+      '<button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text)" onclick="openDevis(\''+c.id+'\')">'+icon('receipt',18,'var(--text)')+'Devis</button>'+
     '</div>'+
+    (c.status!=='termine'
+      ? '<button class="rep-btn" style="width:100%;margin-top:10px;background:var(--pine);color:#fff" onclick="terminerChantier(\''+c.id+'\')">'+icon('check',18,'#fff')+'Terminer le chantier</button>'
+      : (state.archived[c.id]
+          ? '<button class="rep-btn" style="width:100%;margin-top:10px;background:var(--surface2);color:var(--text2)" onclick="unarchive(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Désarchiver</button>'
+          : '<div style="display:flex;gap:10px;margin-top:10px;"><button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text2)" onclick="archiveChantier(\''+c.id+'\')">'+icon('archive',18,'var(--text2)')+'Archiver</button><button class="rep-btn" style="flex:1;background:transparent;color:var(--clayDark);border:1px solid var(--border2)" onclick="rouvrir(\''+c.id+'\')">Rouvrir</button></div>'))+
     '<div style="text-align:center;color:var(--text3);font-size:12px;margin-top:14px;">Astuce : tape une tâche pour changer son état · l’icône ✕ la retire · « Ajouter » pour en créer une.</div>'+
     '</div>';
 }
@@ -583,7 +625,7 @@ function viewRapport(){
   var pct=ts.length?Math.round(done/ts.length*100):0;
   var taskList=ts.map(function(t){
     var fait=t.status==='fait', col=fait?STATUS.done.fg:(t.status==='reporte'?STATUS.todo.fg:'var(--text3)');
-    return '<div class="row" style="gap:9px;padding:8px 0;border-bottom:1px solid var(--border);">'+icon(fait?'checkc':(t.status==='reporte'?'clock':'circle'),18,col)+'<span style="flex:1;font-size:14px;color:var(--text)">'+t.label+'</span>'+(t.unit?'<span style="font-size:12px;color:var(--text2)">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</span>':'')+'</div>';
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--border);"><div class="row" style="gap:9px;">'+icon(fait?'checkc':(t.status==='reporte'?'clock':'circle'),18,col)+'<span style="flex:1;font-size:14px;color:var(--text)">'+t.label+'</span>'+(t.unit?'<span style="font-size:12px;color:var(--text2)">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</span>':'')+'</div>'+(t.note?'<div style="font-size:12px;color:var(--text2);font-style:italic;margin:4px 0 0 27px;">“'+t.note+'”</div>':'')+'</div>';
   }).join('');
   return '<div class="pad">'+
     '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="go(\''+(state.rapportBack||'chantiers')+'\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">Rapport de chantier</div></div>'+
@@ -593,11 +635,38 @@ function viewRapport(){
     taskList+
     '<div class="muted" style="margin:18px 0 9px;">Photos avant / après</div>'+
     '<div class="rep-photos"><div class="rep-photo">'+icon('image',26,'var(--text3)')+'Avant</div><div class="rep-photo">'+icon('image',26,'var(--text3)')+'Après</div></div>'+
+    '<div class="muted" style="margin:18px 0 9px;">Observations</div>'+
+    '<textarea class="obs" placeholder="Ajoute une observation visible sur le rapport client (état du terrain, recommandations…)" oninput="setObs(\''+c.id+'\',this.value)">'+(state.obs[c.id]||'').replace(/</g,'&lt;')+'</textarea>'+
     '<div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">'+
       '<button class="rep-btn" style="background:var(--pine);color:#fff" onclick="alert(\'Rapport envoyé au client (démo) — par e-mail ou SMS.\')">'+icon('send',18,'#fff')+'Envoyer au client</button>'+
       '<button class="rep-btn" style="background:var(--surface2);color:var(--text2)" onclick="alert(\'Téléchargement PDF — bientôt.\')">'+icon('download',18,'var(--text2)')+'Télécharger en PDF</button>'+
       (state.archived[c.id]?'<button class="rep-btn" style="background:transparent;color:var(--clayDark);height:42px" onclick="unarchive(\''+c.id+'\')">'+icon('archive',18,'var(--clayDark)')+'Sortir des archives</button>':'')+
     '</div>'+
+    '</div>';
+}
+
+function viewDevis(){
+  var c=chantierById(state.chantier)||{name:'Chantier',addr:''};
+  var ts=tasksFor(state.chantier);
+  var ht=0;
+  var lines=ts.map(function(t){
+    var price=devisPrice(state.chantier,t.id); ht+=price;
+    return '<div class="dline"><div class="dl-main"><div class="dl-name">'+t.label+'</div>'+(t.unit?'<div class="dl-sub">'+(t.qty!==''&&t.qty!=null?t.qty+' ':'')+t.unit+'</div>':'')+'</div>'+
+      '<div class="dprice"><input inputmode="numeric" value="'+price+'" oninput="setDevisPrice(\''+state.chantier+'\',\''+t.id+'\',this.value)"/><span style="font-size:13px;color:var(--text2)">€</span></div></div>';
+  }).join('');
+  var tva=Math.round(ht*0.2), ttc=ht+tva;
+  return '<div class="pad">'+
+    '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="openChantier(\''+c.id+'\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">Devis</div></div>'+
+    '<div class="card" style="cursor:default;border-left-width:4px;border-left-color:var(--clay);margin-bottom:16px;"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div></div>'+
+    '<div class="muted" style="margin-bottom:2px;">Prestations</div>'+
+    lines+
+    '<div style="margin-top:12px;">'+
+      '<div class="dtot-row"><span style="color:var(--text2)">Total HT</span><span id="htval">'+ht+' €</span></div>'+
+      '<div class="dtot-row"><span style="color:var(--text2)">TVA 20 %</span><span id="tvaval">'+tva+' €</span></div>'+
+      '<div class="dtot-row grand"><span>Total TTC</span><span id="ttcval">'+ttc+' €</span></div>'+
+    '</div>'+
+    '<button class="rep-btn" style="width:100%;margin-top:18px;background:var(--clay);color:#fff" onclick="alert(\'Devis envoyé au client (démo).\')">'+icon('send',18,'#fff')+'Envoyer le devis</button>'+
+    '<div style="text-align:center;color:var(--text3);font-size:12px;margin-top:12px;">Les prix sont modifiables · TVA indicative.</div>'+
     '</div>';
 }
 
@@ -722,7 +791,7 @@ function renderTabbar(){
     right.map(tab).join('')+'</div>';
 }
 
-var VIEWS={connexion:viewConnexion,inscription:viewInscription,agenda:viewAgenda,mois:viewMois,fiche:viewFiche,chantiers:viewChantiers,carte:viewCarte,profil:viewProfil,prestations:viewPrestations,abonnement:viewAbonnement,rappels:viewRappels,rapport:viewRapport};
+var VIEWS={connexion:viewConnexion,inscription:viewInscription,agenda:viewAgenda,mois:viewMois,fiche:viewFiche,chantiers:viewChantiers,carte:viewCarte,profil:viewProfil,prestations:viewPrestations,abonnement:viewAbonnement,rappels:viewRappels,rapport:viewRapport,devis:viewDevis};
 function render(){
   document.getElementById('app').innerHTML='<div class="screen active">'+(VIEWS[state.screen]||viewAgenda)()+'</div>';
   renderTabbar();
