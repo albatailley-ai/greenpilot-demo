@@ -39,24 +39,30 @@
   .pad{padding:14px 18px 24px;}
   .row{display:flex; align-items:center;}
   .between{justify-content:space-between;}
-  .icon-btn{width:40px; height:40px; border-radius:20px; border:1px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .icon-btn{width:40px; height:40px; border-radius:20px; border:1px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04); transition:background .15s, transform .1s;}
+  .icon-btn:active{transform:scale(.92);}
   svg{display:block;}
-  .h-sub{font-size:12px; color:var(--text2); font-weight:500;}
-  .h-title{font-size:21px; font-weight:600; color:var(--text); margin:0;}
+  .h-sub{font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.6px;}
+  .h-title{font-size:22px; font-weight:700; color:var(--text); margin:0; letter-spacing:-.3px;}
   .muted{font-size:13px; font-weight:600; color:var(--text2);}
+  .count-chip{background:var(--pineLight); color:var(--pineDark); font-size:12px; font-weight:700; border-radius:999px; padding:3px 11px;}
   /* week strip */
-  .week{display:flex; gap:5px; margin:12px 0;}
-  .day{flex:1; display:flex; flex-direction:column; align-items:center; padding:9px 0; border-radius:var(--r-md); cursor:pointer; background:transparent;}
-  .day.sel{background:var(--pine);}
-  .day .wd{font-size:11px; color:var(--text3);}
-  .day.sel .wd{color:#fff;}
-  .day .dn{font-size:17px; font-weight:600; margin-top:3px; color:var(--text);}
+  .week{display:flex; gap:6px; margin:14px 0 18px;}
+  .day{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 7px; border-radius:14px; cursor:pointer; background:transparent; transition:background .15s, transform .1s;}
+  .day:active{transform:scale(.95);}
+  .day.sel{background:var(--pine); box-shadow:0 6px 14px rgba(31,93,67,.28);}
+  .day .wd{font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--text3); font-weight:600;}
+  .day.sel .wd{color:rgba(255,255,255,.85);}
+  .day.today:not(.sel) .wd{color:var(--pine);}
+  .day .dn{font-size:17px; font-weight:600; color:var(--text);}
   .day.sel .dn{color:#fff;}
-  .dot{width:5px;height:5px;border-radius:3px;margin-top:5px;background:transparent;}
+  .day.today:not(.sel) .dn{color:var(--pine); font-weight:700;}
+  .dot{width:5px;height:5px;border-radius:3px;background:transparent;}
   /* appt card */
   .appt{display:flex; gap:12px; margin-bottom:11px;}
   .appt .time{width:46px; padding-top:13px; text-align:right; font-size:13px; font-weight:600; color:var(--text2);}
-  .card{flex:1; display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-left-width:4px; border-top-right-radius:var(--r-md); border-bottom-right-radius:var(--r-md); padding:12px 14px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .card{flex:1; display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-left-width:4px; border-top-right-radius:var(--r-md); border-bottom-right-radius:var(--r-md); padding:13px 14px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.06); transition:box-shadow .15s, transform .1s;}
+  .card:active{transform:scale(.99);}
   .card .name{font-size:15px; font-weight:600;}
   .card .addr{font-size:12px; color:var(--text2); margin-top:2px;}
   .pill{border-radius:999px; padding:4px 10px; font-size:11px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;}
@@ -68,11 +74,14 @@
   .task .st{font-size:11px; font-weight:600;}
   .strike{text-decoration:line-through;}
   /* generic */
-  .btn-primary{height:52px; border-radius:var(--r-md); background:var(--pine); color:#fff; font-size:16px; font-weight:600; border:0; width:100%; cursor:pointer; display:flex; align-items:center; justify-content:center;}
-  .btn-clay{height:50px; border-radius:var(--r-md); background:var(--clay); color:#fff; font-size:15px; font-weight:600; border:0; width:100%; cursor:pointer;}
+  .btn-primary{height:52px; border-radius:var(--r-md); background:var(--pine); color:#fff; font-size:16px; font-weight:600; border:0; width:100%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(31,93,67,.28); transition:transform .1s;}
+  .btn-clay{height:50px; border-radius:var(--r-md); background:var(--clay); color:#fff; font-size:15px; font-weight:600; border:0; width:100%; cursor:pointer; box-shadow:0 6px 16px rgba(194,86,47,.28); transition:transform .1s;}
+  .btn-primary:active,.btn-clay:active{transform:scale(.985);}
   .field{display:flex; align-items:center; gap:10px; border:1px solid var(--border); border-radius:var(--r-md); padding:0 13px; height:52px; background:var(--surface); margin-bottom:10px;}
   .field input{flex:1; border:0; outline:0; background:transparent; font-size:15px; color:var(--text); font-family:inherit;}
   .field input::placeholder{color:var(--text3);}
+  .field{transition:border-color .15s, box-shadow .15s;}
+  .field:focus-within{border-color:var(--pine); box-shadow:0 0 0 3px rgba(31,93,67,.12);}
   .link{color:var(--pine); font-size:14px; font-weight:600; cursor:pointer;}
   .center{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
   .presta-wrap{border:1px solid var(--border); border-radius:var(--r-md); margin-bottom:7px; overflow:hidden;}
@@ -87,16 +96,17 @@
   .set-row{display:flex; align-items:center; gap:12px; padding:14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); margin-bottom:8px;}
   .set-row .sl{flex:1; font-size:14px;}
   /* tab bar */
-  .tabbar{background:var(--surface); border-top:1px solid var(--border); display:none;}
+  .tabbar{background:var(--surface); border-top:1px solid var(--border); display:none; box-shadow:0 -3px 14px rgba(0,0,0,.06);}
   .tabbar.show{display:block;}
   .tabs{display:flex; height:64px; align-items:flex-start;}
-  .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:8px; cursor:pointer; color:var(--text3); font-size:11px; background:none; border:0; font-family:inherit;}
+  .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:8px; cursor:pointer; color:var(--text2); font-size:11px; font-weight:500; background:none; border:0; font-family:inherit;}
   .tab.active{color:var(--pine);}
   .tab .tab-ic{width:48px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; transition:background .15s;}
   .tab.active .tab-ic{background:var(--pineLight);}
   .fab-slot{width:72px; position:relative; display:flex; flex-direction:column; align-items:center;}
-  .fab{position:absolute; top:-22px; width:60px; height:60px; border-radius:30px; background:var(--clay); display:flex; align-items:center; justify-content:center; cursor:pointer; border:0; box-shadow:0 6px 14px rgba(194,86,47,.4);}
-  .fab-lbl{font-size:11px; color:var(--text3); margin-top:44px;}
+  .fab{position:absolute; top:-24px; width:62px; height:62px; border-radius:31px; background:var(--clay); display:flex; align-items:center; justify-content:center; cursor:pointer; border:4px solid var(--surface); box-shadow:0 8px 18px rgba(194,86,47,.45); transition:transform .1s;}
+  .fab:active{transform:scale(.94);}
+  .fab-lbl{font-size:11px; color:var(--text2); font-weight:500; margin-top:44px;}
   /* modal */
   .modal{position:absolute; inset:0; background:var(--bg); display:none; flex-direction:column; z-index:20;}
   .modal.show{display:flex;}
@@ -242,7 +252,7 @@ function setDetail(i, val){ state.presta[i].detail=val; } // pas de re-render : 
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='0.4';
+var APP_VERSION='0.5';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -315,9 +325,9 @@ function viewAgenda(){
   var label=WD_FULL[day.wd]+' '+day.d+' juin'+(day.d===17?" <span style=\"color:var(--pine);font-weight:700\">· aujourd'hui</span>":'');
   var items=CH[day.d]||[];
   var week='<div class="week">'+WEEK.map(function(x,i){
-    var sel=i===state.daySel, has=DAYS_WITH.indexOf(x.d)>-1;
+    var sel=i===state.daySel, has=DAYS_WITH.indexOf(x.d)>-1, today=x.d===17;
     var dotc=has?(sel?'#fff':'var(--pine)'):'transparent';
-    return '<div class="day'+(sel?' sel':'')+'" onclick="selectDay('+i+')"><div class="wd">'+x.wd+'</div><div class="dn">'+x.d+'</div><div class="dot" style="background:'+dotc+'"></div></div>';
+    return '<div class="day'+(sel?' sel':'')+(today?' today':'')+'" onclick="selectDay('+i+')"><div class="wd">'+x.wd+'</div><div class="dn">'+x.d+'</div><div class="dot" style="background:'+dotc+'"></div></div>';
   }).join('')+'</div>';
   var list = items.length? items.map(function(c){
     var accent=STATUS[STATUS_KEY[c.status]].fg;
@@ -330,7 +340,7 @@ function viewAgenda(){
     '<div class="row between" style="padding-bottom:6px;"><div><div class="h-sub">Juin 2026</div><div class="h-title">Agenda</div></div>'+
     '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
     week+
-    '<div class="muted" style="margin-bottom:10px;">'+label+'</div>'+
+    '<div class="row between" style="margin-bottom:12px;"><div class="muted">'+label+'</div>'+(items.length?'<div class="count-chip">'+items.length+(items.length>1?' chantiers':' chantier')+'</div>':'')+'</div>'+
     list+'</div>';
 }
 
@@ -473,7 +483,7 @@ function renderTabbar(){
   tb.classList.add('show');
   var defs=[['agenda','calendar','Agenda'],['chantiers','clip','Mes chantiers']];
   var right=[['carte','map','Carte'],['profil','user','Profil']];
-  function tab(t){ var act=state.screen===t[0]; return '<button class="tab'+(act?' active':'')+'" onclick="go(\''+t[0]+'\')"><span class="tab-ic">'+icon(t[1],22,act?'var(--pine)':'var(--text3)')+'</span><span>'+t[2]+'</span></button>'; }
+  function tab(t){ var act=state.screen===t[0]; return '<button class="tab'+(act?' active':'')+'" onclick="go(\''+t[0]+'\')"><span class="tab-ic">'+icon(t[1],22,act?'var(--pine)':'var(--text2)')+'</span><span>'+t[2]+'</span></button>'; }
   tb.innerHTML='<div class="tabs">'+defs.map(tab).join('')+
     '<div class="fab-slot"><div class="fab" onclick="openCreate()">'+icon('plus',30,'#fff')+'</div><div class="fab-lbl">Créer</div></div>'+
     right.map(tab).join('')+'</div>';
