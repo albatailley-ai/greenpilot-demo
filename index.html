@@ -115,6 +115,38 @@
   .modal .scroll{padding:0;}
   .voice{height:58px; border-radius:var(--r-lg); background:var(--pineLight); display:flex; align-items:center; justify-content:center; gap:10px; color:var(--pineDark); font-size:15px; font-weight:600; cursor:pointer; margin-bottom:8px;}
   .brand-badge{width:64px;height:64px;border-radius:var(--r-lg);background:var(--pine);display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  /* grille agenda (planning semaine) */
+  .grid-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -18px; padding:2px 18px 10px;}
+  .grid{display:grid; grid-template-columns:68px repeat(7, 92px); gap:6px; min-width:max-content;}
+  .gh{text-align:center; padding:7px 0; border-radius:12px;}
+  .gh .wd{font-size:10px; letter-spacing:.5px; color:var(--text3); font-weight:700;}
+  .gh .dn{font-size:16px; font-weight:700; color:var(--text); margin-top:1px;}
+  .gh.today{background:var(--pine);}
+  .gh.today .wd,.gh.today .dn{color:#fff;}
+  .glabel{display:flex; flex-direction:column; justify-content:center; padding:0 2px;}
+  .glabel b{font-size:13px; color:var(--text); font-weight:600;}
+  .glabel span{font-size:10px; color:var(--text3); margin-top:2px;}
+  .gcell{min-height:76px; border:1px solid var(--border); border-radius:14px; background:var(--surface); display:flex; flex-direction:column; gap:5px; padding:6px;}
+  .gcell.empty{border:0; background:repeating-linear-gradient(45deg,#f1ece3,#f1ece3 5px,#faf8f4 5px,#faf8f4 11px); align-items:center; justify-content:center; cursor:pointer;}
+  .gcell.empty .plus{color:var(--text3); font-size:22px; font-weight:300; line-height:1;}
+  .gchip{border-radius:10px; padding:6px 8px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; border:1.5px solid; line-height:1.1; transition:transform .1s;}
+  .gchip:active{transform:scale(.96);}
+  .gchip .gdot{width:7px; height:7px; border-radius:4px; flex:none;}
+  .gchip .gname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* interrupteurs, unités, plans */
+  .switch{width:42px; height:24px; border-radius:999px; background:var(--border2); position:relative; cursor:pointer; transition:background .15s; flex:none;}
+  .switch.on{background:var(--pine);}
+  .switch .knob{position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:9px; background:#fff; transition:left .15s; box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .switch.on .knob{left:21px;}
+  .unit-chip{font-size:11px; color:var(--text2); background:var(--surface2); border-radius:999px; padding:2px 9px; font-weight:600;}
+  .sub-head{display:flex; align-items:center; gap:8px; padding-bottom:10px;}
+  .plan{border:1px solid var(--border); border-radius:var(--r-lg); padding:15px; margin-bottom:10px; background:var(--surface);}
+  .plan.cur{border:2px solid var(--pine);}
+  .plan .pname{font-size:16px; font-weight:700;}
+  .plan .pprice{font-size:15px; font-weight:700; color:var(--pine);}
+  .plan .pdesc{font-size:12px; color:var(--text2); margin-top:4px;}
+  .plan .pbadge{font-size:11px; font-weight:700; color:var(--pineDark); background:var(--pineLight); border-radius:999px; padding:3px 10px;}
+  .plan .pbtn{margin-top:11px; height:40px; border-radius:var(--r-md); border:1px solid var(--pine); background:transparent; color:var(--pine); font-weight:600; font-size:13px; width:100%; cursor:pointer; font-family:inherit;}
 </style>
 </head>
 <body>
@@ -210,6 +242,34 @@ var TASK_META = {
 };
 var NEXT = {a_faire:'fait', fait:'reporte', reporte:'a_faire'};
 
+// Créneaux de la journée (lignes de la grille agenda)
+var BANDS=[{key:'matin',label:'Matin',time:'8h–12h'},{key:'aprem',label:'Après-midi',time:'13h–17h'},{key:'soir',label:'Soir',time:'après 17h'}];
+function bandOf(t){ var h=parseInt(t,10); return h<12?'matin':(h<17?'aprem':'soir'); }
+
+// Bibliothèque de prestations (écran Profil > Mes prestations)
+var PRESTATIONS=[
+  {n:'Tonte pelouse',u:'forfait',on:true},{n:'Taille de haie',u:'ml',on:true},
+  {n:'Désherbage massif',u:'m²',on:true},{n:'Débroussaillage',u:'forfait',on:true},
+  {n:'Évacuation déchets verts',u:'volume',on:true},{n:'Élagage',u:'sujet',on:false},
+  {n:'Taille d’arbuste',u:'sujet',on:true},{n:'Scarification',u:'m²',on:false},
+  {n:'Plantation',u:'sujet',on:true},{n:'Création de massif',u:'m²',on:true},
+  {n:'Soufflage / nettoyage',u:'forfait',on:true},{n:'Entretien arrosage auto',u:'forfait',on:false},
+  {n:'Traitement / fertilisation',u:'m²',on:false},{n:'Abattage',u:'sujet',on:false}
+];
+// Rappels intelligents (écran Profil > Rappels)
+var REMINDERS=[
+  {n:'Entretien récurrent',d:'Replanifie la tonte tous les 21 j en saison',on:true},
+  {n:'Relance devis',d:'Relance un devis sans réponse après 7 j',on:true},
+  {n:'Renouvellement contrat',d:'Alerte avant la fin d’un contrat annuel',on:false},
+  {n:'Rappel saisonnier',d:'Taille des haies, scarification… au bon moment',on:true}
+];
+// Plans (écran Profil > Abonnement)
+var PLANS=[
+  {n:'Solo',p:'12 €/mois',d:'1 utilisateur · chantiers illimités · note vocale',cur:true},
+  {n:'Pro',p:'29 €/mois',d:'Devis, photos avant/après, rappels avancés',cur:false},
+  {n:'Équipe',p:'59 €/mois',d:'Multi-utilisateurs, tournées, intégrations',cur:false}
+];
+
 function chantierById(id){
   for(var k in CH){ for(var i=0;i<CH[k].length;i++){ if(CH[k][i].id===id) return CH[k][i]; } }
   return null;
@@ -250,7 +310,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='0.6';
+var APP_VERSION='0.7';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -319,27 +379,32 @@ function togglePw(id, el){
 }
 
 function viewAgenda(){
-  var day=WEEK[state.daySel];
-  var label=WD_FULL[day.wd]+' '+day.d+' juin'+(day.d===17?" <span style=\"color:var(--pine);font-weight:700\">· aujourd'hui</span>":'');
-  var items=CH[day.d]||[];
-  var week='<div class="week">'+WEEK.map(function(x,i){
-    var sel=i===state.daySel, has=DAYS_WITH.indexOf(x.d)>-1, today=x.d===17;
-    var dotc=has?(sel?'#fff':'var(--pine)'):'transparent';
-    return '<div class="day'+(sel?' sel':'')+(today?' today':'')+'" onclick="selectDay('+i+')"><div class="wd">'+x.wd+'</div><div class="dn">'+x.d+'</div><div class="dot" style="background:'+dotc+'"></div></div>';
-  }).join('')+'</div>';
-  var list = items.length? items.map(function(c){
-    var accent=STATUS[STATUS_KEY[c.status]].fg;
-    return '<div class="appt"><div class="time">'+c.time+'</div>'+
-      '<div class="card" style="border-left-color:'+accent+'" onclick="openChantier(\''+c.id+'\')">'+
-      '<div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+
-      statusPill(c.status)+'</div></div>';
-  }).join('') : '<div class="empty">'+icon('calblank',30,'var(--text3)')+'<div>Aucun chantier ce jour</div></div>';
+  var headers='<div></div>'+WEEK.map(function(x){
+    var today=x.d===17;
+    return '<div class="gh'+(today?' today':'')+'"><div class="wd">'+x.wd.toUpperCase()+'</div><div class="dn">'+x.d+'</div></div>';
+  }).join('');
+  var rows=BANDS.map(function(b){
+    var label='<div class="glabel"><b>'+b.label+'</b><span>'+b.time+'</span></div>';
+    var cells=WEEK.map(function(x){
+      var list=(CH[x.d]||[]).filter(function(ch){return bandOf(ch.time)===b.key;});
+      if(!list.length){ return '<div class="gcell empty" onclick="openCreate()"><span class="plus">+</span></div>'; }
+      return '<div class="gcell">'+list.map(function(ch){
+        var c=STATUS[STATUS_KEY[ch.status]];
+        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onclick="openChantier(\''+ch.id+'\')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
+      }).join('')+'</div>';
+    }).join('');
+    return label+cells;
+  }).join('');
+  var legend='<div class="row" style="gap:13px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--text2);">'+
+    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.todo.fg+'"></span>À venir</span>'+
+    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.soon.fg+'"></span>En cours</span>'+
+    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.done.fg+'"></span>Terminé</span>'+
+    '<span style="color:var(--text3)">· case hachurée = créneau libre, tape pour ajouter</span></div>';
   return '<div class="pad">'+
-    '<div class="row between" style="padding-bottom:6px;"><div><div class="h-sub">Juin 2026</div><div class="h-title">Agenda</div></div>'+
+    '<div class="row between" style="padding-bottom:10px;"><div><div class="h-sub">Juin 2026 · semaine</div><div class="h-title">Agenda</div></div>'+
     '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
-    week+
-    '<div class="row between" style="margin-bottom:12px;"><div class="muted">'+label+'</div>'+(items.length?'<div class="count-chip">'+items.length+(items.length>1?' chantiers':' chantier')+'</div>':'')+'</div>'+
-    list+'</div>';
+    '<div class="grid-wrap"><div class="grid">'+headers+rows+'</div></div>'+
+    legend+'</div>';
 }
 
 function viewFiche(){
@@ -452,11 +517,47 @@ function viewProfil(){
       '<div style="width:52px;height:52px;border-radius:999px;background:var(--pineLight);display:flex;align-items:center;justify-content:center;">'+icon('user',28,'var(--pineDark)')+'</div>'+
       '<div style="flex:1"><div style="font-size:16px;font-weight:600;">Entreprise Arthur</div><div style="font-size:13px;color:var(--text2);margin-top:2px;">Arthur</div><div style="font-size:12px;color:var(--text3);">arthur@demo.fr</div></div></div>'+
     '<div class="muted" style="margin:22px 0 9px 2px;">Réglages</div>'+
-    setRow('clip','Mes prestations')+setRow('card','Abonnement')+setRow('bell','Rappels')+
+    setRow('clip','Mes prestations','prestations')+setRow('card','Abonnement','abonnement')+setRow('bell','Rappels','rappels')+
     '<button class="set-row" style="justify-content:center;gap:8px;border-color:var(--border2);cursor:pointer;width:100%;margin-top:16px;font-family:inherit;" onclick="logout()">'+icon('logout',19,'var(--clayDark)')+'<span style="color:var(--clayDark);font-size:15px;font-weight:600;">Se déconnecter</span></button>'+
     '</div>';
 }
-function setRow(ic,label){ return '<div class="set-row">'+icon(ic,20,'var(--text2)')+'<span class="sl">'+label+'</span>'+icon('chev',20,'var(--text3)')+'</div>'; }
+function setRow(ic,label,screen){ return '<div class="set-row" style="cursor:pointer" onclick="go(\''+screen+'\')">'+icon(ic,20,'var(--text2)')+'<span class="sl">'+label+'</span>'+icon('chev',20,'var(--text3)')+'</div>'; }
+function subHead(title){ return '<div class="sub-head"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent;box-shadow:none" onclick="go(\'profil\')">'+icon('back',24,'var(--text)')+'</div><div style="font-size:18px;font-weight:700;">'+title+'</div></div>'; }
+
+function viewPrestations(){
+  var rows=PRESTATIONS.map(function(p,i){
+    return '<div class="set-row" style="cursor:default"><span class="sl">'+p.n+'</span><span class="unit-chip">'+p.u+'</span><div class="switch'+(p.on?' on':'')+'" onclick="togglePresence('+i+')"><div class="knob"></div></div></div>';
+  }).join('');
+  return '<div class="pad">'+subHead('Mes prestations')+
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Active les prestations que tu proposes. L’unité sert au chiffrage.</div>'+
+    rows+
+    '<div class="add-task" style="margin-top:6px;"><input id="newpresta" placeholder="Ajouter une prestation…" onkeydown="if(event.key===\'Enter\')addPrestation()"/><button class="add-btn" aria-label="Ajouter" onclick="addPrestation()">'+icon('plus',22,'#fff')+'</button></div>'+
+    '</div>';
+}
+function togglePresence(i){ PRESTATIONS[i].on=!PRESTATIONS[i].on; render(); }
+function addPrestation(){ var inp=document.getElementById('newpresta'); if(!inp) return; var v=(inp.value||'').trim(); if(!v) return; PRESTATIONS.push({n:v,u:'forfait',on:true}); render(); var n=document.getElementById('newpresta'); if(n) n.focus(); }
+
+function viewAbonnement(){
+  var cards=PLANS.map(function(p){
+    return '<div class="plan'+(p.cur?' cur':'')+'">'+
+      '<div class="row between"><div class="pname">'+p.n+'</div>'+(p.cur?'<span class="pbadge">Plan actuel</span>':'<span class="pprice">'+p.p+'</span>')+'</div>'+
+      (p.cur?'<div class="pprice" style="margin-top:3px">'+p.p+'</div>':'')+
+      '<div class="pdesc">'+p.d+'</div>'+
+      (p.cur?'':'<button class="pbtn" onclick="alert(\'Changement de plan — bientôt.\')">Passer à '+p.n+'</button>')+
+      '</div>';
+  }).join('');
+  return '<div class="pad">'+subHead('Abonnement')+
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Prix transparent, sans engagement.</div>'+cards+'</div>';
+}
+
+function viewRappels(){
+  var rows=REMINDERS.map(function(r,i){
+    return '<div class="set-row" style="cursor:default;align-items:flex-start"><div style="flex:1"><div class="sl" style="font-weight:600">'+r.n+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+r.d+'</div></div><div class="switch'+(r.on?' on':'')+'" onclick="toggleReminder('+i+')"><div class="knob"></div></div></div>';
+  }).join('');
+  return '<div class="pad">'+subHead('Rappels')+
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">GreenPilot te prévient au bon moment — tu gardes la main.</div>'+rows+'</div>';
+}
+function toggleReminder(i){ REMINDERS[i].on=!REMINDERS[i].on; render(); }
 
 function renderModal(){
   var body='<div class="pad">'+
@@ -489,7 +590,7 @@ function renderTabbar(){
     right.map(tab).join('')+'</div>';
 }
 
-var VIEWS={connexion:viewConnexion,inscription:viewInscription,agenda:viewAgenda,mois:viewMois,fiche:viewFiche,chantiers:viewChantiers,carte:viewCarte,profil:viewProfil};
+var VIEWS={connexion:viewConnexion,inscription:viewInscription,agenda:viewAgenda,mois:viewMois,fiche:viewFiche,chantiers:viewChantiers,carte:viewCarte,profil:viewProfil,prestations:viewPrestations,abonnement:viewAbonnement,rappels:viewRappels};
 function render(){
   document.getElementById('app').innerHTML='<div class="screen active">'+(VIEWS[state.screen]||viewAgenda)()+'</div>';
   renderTabbar();
