@@ -397,7 +397,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.4';
+var APP_VERSION='1.5';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -756,21 +756,19 @@ function viewDevis(){
     '</div>';
 }
 
+var TOWN_COORD={'Biscarrosse':{x:63,y:283},'Sanguinet':{x:98,y:238},'Parentis':{x:98,y:304},'Parentis-en-Born':{x:98,y:304},'Gastes':{x:66,y:324},'Mimizan':{x:35,y:382},'Sainte-Eulalie-en-Born':{x:50,y:352},'Ychoux':{x:150,y:330},'Pontenx-les-Forges':{x:78,y:360},'Escource':{x:120,y:382},'La Teste-de-Buch':{x:75,y:165},'Gujan-Mestras':{x:110,y:160},'Le Teich':{x:140,y:150},'Biganos':{x:160,y:135},'Mios':{x:185,y:150},'Salles':{x:205,y:165}};
+var STATUS_PRIO={en_cours:0,planifie:1,termine:2,annule:3};
+function townOf(addr){ return (addr||'').split('·')[0].trim(); }
 function viewCarte(){
-  var towns=[
-    {name:'Biscarrosse',x:63,y:283,c:'#2f6da8'},
-    {name:'Sanguinet',x:98,y:238,c:'#9c6f1e'},
-    {name:'Parentis',x:98,y:304,c:'#9c6f1e'},
-    {name:'Gastes',x:66,y:324,c:'#2e7d32'}
-  ];
-  var refs=[{name:'Arcachon',x:59,y:147,a:'start'},{name:'Bordeaux',x:289,y:56,a:'end'},{name:'Mimizan',x:35,y:382,a:'start'}];
+  var cd=state.carteDate;
+  var all=(cd?(CH[cd]||[]).slice():allChantiers()).filter(function(c){return !state.archived[c.id];});
+  var townMap={};
+  all.forEach(function(c){ var t=townOf(c.addr), co=TOWN_COORD[t]; if(!co) return; if(!townMap[t]){ townMap[t]={co:co,st:c.status,n:1}; } else { townMap[t].n++; if(STATUS_PRIO[c.status]<STATUS_PRIO[townMap[t].st]) townMap[t].st=c.status; } });
+  var pins=Object.keys(townMap).map(function(t){ var m=townMap[t], col=STATUS[STATUS_KEY[m.st]].fg; return '<circle cx="'+m.co.x+'" cy="'+m.co.y+'" r="6.5" fill="'+col+'" stroke="#fff" stroke-width="2"/><text x="'+(m.co.x+11)+'" y="'+(m.co.y+4)+'" font-size="11.5" font-weight="600" fill="#23241f">'+t+(m.n>1?' ('+m.n+')':'')+'</text>'; }).join('');
+  var refs=[{name:'Arcachon',x:59,y:147,a:'start'},{name:'Bordeaux',x:289,y:56,a:'end'}];
   var refDots=refs.map(function(r){
     var tx=r.a==='end'?r.x-7:r.x+7, anc=r.a==='end'?'end':'start';
     return '<circle cx="'+r.x+'" cy="'+r.y+'" r="3" fill="#9c9a8e"/><text x="'+tx+'" y="'+(r.y+3)+'" font-size="10" text-anchor="'+anc+'" fill="#9c9a8e">'+r.name+'</text>';
-  }).join('');
-  var pins=towns.map(function(t){
-    return '<circle cx="'+t.x+'" cy="'+t.y+'" r="6.5" fill="'+t.c+'" stroke="#fff" stroke-width="2"/>'+
-      '<text x="'+(t.x+11)+'" y="'+(t.y+4)+'" font-size="11.5" font-weight="600" fill="#23241f">'+t.name+'</text>';
   }).join('');
   var svg='<svg viewBox="0 0 340 430" width="100%" style="display:block;border-radius:var(--r-lg);border:1px solid var(--border);background:#eaeee2;">'+
     '<path d="M0,0 L52,0 C46,90 60,150 50,210 C42,270 58,340 46,430 L0,430 Z" fill="#cfe3ec"/>'+
@@ -786,8 +784,6 @@ function viewCarte(){
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2f6da8"></span>En cours</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#9c6f1e"></span>À venir</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2e7d32"></span>Terminé</span></div>';
-  var cd=state.carteDate;
-  var all=(cd?(CH[cd]||[]).slice():allChantiers()).filter(function(c){return !state.archived[c.id];});
   var filterBar='<div class="carte-filter"><input type="date" class="dt-input" min="2026-01-01" max="2027-12-31" value="'+(cd||'')+'" onchange="setCarteDate(this.value)"/>'+(cd?'<button class="cf-clear" onclick="setCarteDate(\'\')">Toutes les dates</button>':'<span style="font-size:12px;color:var(--text3)">Toutes les dates</span>')+'</div>';
   var list=all.length?all.map(function(c){
     return '<div class="card" style="border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';margin-bottom:9px;border-top-left-radius:var(--r-md);border-bottom-left-radius:var(--r-md);" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+(cd?'':' · '+fmtDate(dateOf(c.id)))+'</div></div>'+statusPill(c.status)+'</div>';
