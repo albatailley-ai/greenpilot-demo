@@ -129,10 +129,21 @@
   .gcell{min-height:76px; border:1px solid var(--border); border-radius:14px; background:var(--surface); display:flex; flex-direction:column; gap:5px; padding:6px;}
   .gcell.empty{border:0; background:repeating-linear-gradient(45deg,#e6ecdd,#e6ecdd 5px,#f1f5ec 5px,#f1f5ec 11px); align-items:center; justify-content:center; cursor:pointer;}
   .gcell.empty .plus{color:var(--text3); font-size:22px; font-weight:300; line-height:1;}
-  .gchip{border-radius:10px; padding:9px 9px; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:5px; cursor:grab; border:1.5px solid; line-height:1.15; transition:transform .1s; touch-action:none; user-select:none;}
+  .gchip{border-radius:10px; padding:8px 9px; font-size:12.5px; font-weight:600; display:flex; flex-direction:column; align-items:flex-start; gap:1px; cursor:grab; border:1.5px solid; line-height:1.15; transition:transform .1s; touch-action:none; user-select:none;}
+  .gchip .gtime{font-size:10px; font-weight:700; opacity:.8;}
+  .gchip .gname{font-size:12.5px; max-width:100%;}
   .gchip:active{transform:scale(.96);}
   .gchip .gdot{width:7px; height:7px; border-radius:4px; flex:none;}
   .gchip .gname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* bascule Jour/Semaine + vue Jour */
+  .seg{display:flex; background:var(--surface2); border-radius:999px; padding:4px; gap:4px;}
+  .seg button{flex:1; height:38px; border:0; border-radius:999px; background:transparent; font-size:14px; font-weight:600; color:var(--text2); cursor:pointer; font-family:inherit; transition:background .12s;}
+  .seg button.on{background:var(--pine); color:#fff;}
+  .band-hdr{display:flex; align-items:baseline; gap:8px; margin:16px 0 9px;}
+  .band-hdr span:first-child{font-size:14px; font-weight:700; color:var(--text);}
+  .band-hdr .band-time{font-size:12px; color:var(--text3);}
+  .empty-band{display:flex; align-items:center; justify-content:center; gap:6px; height:50px; border:1.5px dashed var(--border2); border-radius:var(--r-md); color:var(--text3); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:11px; transition:transform .1s;}
+  .empty-band:active{transform:scale(.99);}
   /* interrupteurs, unités, plans */
   .switch{width:50px; height:30px; border-radius:999px; background:var(--border2); position:relative; cursor:pointer; transition:background .15s; flex:none;}
   .switch.on{background:var(--pine);}
@@ -323,6 +334,10 @@ var NEXT = {a_faire:'fait', fait:'reporte', reporte:'a_faire'};
 var BANDS=[{key:'matin',label:'Matin',time:'8h–12h'},{key:'aprem',label:'Après-midi',time:'13h–17h'},{key:'soir',label:'Soir',time:'après 17h'}];
 function bandOf(t){ var h=parseInt(t,10); return h<12?'matin':(h<17?'aprem':'soir'); }
 var WD3=['dim','lun','mar','mer','jeu','ven','sam'];
+var WD_LONG=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+function fmtLong(iso){ var d=new Date(iso+'T00:00:00'); var n=WD_LONG[d.getDay()]; return n.charAt(0).toUpperCase()+n.slice(1)+' '+d.getDate()+' '+MONTHS_LONG[d.getMonth()]; }
+function shiftDay(n){ var d=new Date(state.dayIso+'T00:00:00'); d.setDate(d.getDate()+n); state.dayIso=isoOf(d); state.weekStart=mondayOf(state.dayIso); render(); }
+function setAgendaView(v){ state.agendaView=v; if(v==='semaine') state.weekStart=mondayOf(state.dayIso); render(); }
 var MONTHS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 var MONTHS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 function shiftMonth(n){ var m=state.monthM+n, y=state.monthY; while(m<0){m+=12;y--;} while(m>11){m-=12;y++;} state.monthM=m; state.monthY=y; var nd=new Date(y,m+1,0).getDate(); if(state.monthSel>nd) state.monthSel=nd; render(); }
@@ -364,7 +379,7 @@ function chantierById(id){
 
 /* ----- état ----- */
 var state = {
-  screen:'connexion', daySel:2, monthSel:17, monthY:2026, monthM:5, chantier:null, tasks:{}, pw1:false, pw2:false,
+  screen:'connexion', daySel:2, monthSel:17, monthY:2026, monthM:5, agendaView:'jour', dayIso:'2026-06-17', chantier:null, tasks:{}, pw1:false, pw2:false,
   filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
   weekStart:'2026-06-15', createDate:'2026-06-17', createBand:'matin', carteDate:'',
   presta:[
@@ -399,7 +414,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='1.9';
+var APP_VERSION='2.0';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -581,7 +596,7 @@ function togglePw(id, el){
   el.innerHTML = icon(hidden?'eyeoff':'eye',20,'var(--text3)');
 }
 
-function viewAgenda(){
+function agendaWeek(){
   var days=weekDates(state.weekStart);
   var headers='<div></div>'+days.map(function(x){
     var today=x.iso===TODAY;
@@ -594,7 +609,7 @@ function viewAgenda(){
       if(!list.length){ return '<div class="gcell empty" data-date="'+x.iso+'" data-band="'+b.key+'" onclick="openCreate(\''+x.iso+'\',\''+b.key+'\')"><span class="plus">+</span></div>'; }
       return '<div class="gcell" data-date="'+x.iso+'" data-band="'+b.key+'">'+list.map(function(ch){
         var c=STATUS[STATUS_KEY[ch.status]];
-        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\',\''+x.iso+'\')"><span class="gdot" style="background:'+c.fg+'"></span><span class="gname">'+ch.name+'</span></div>';
+        return '<div class="gchip" style="background:'+c.bg+';border-color:'+c.fg+';color:'+c.fg+'" onpointerdown="chipDown(event,\''+ch.id+'\',\''+x.iso+'\')"><span class="gtime">'+ch.time+'</span><span class="gname">'+ch.name+'</span></div>';
       }).join('')+'</div>';
     }).join('');
     return label+cells;
@@ -606,16 +621,39 @@ function viewAgenda(){
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.soon.fg+'"></span>En cours</span>'+
     '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS.done.fg+'"></span>Terminé</span>'+
     '<span style="color:var(--text3)">· glisse une pastille pour déplacer · case hachurée = libre</span></div>';
-  return '<div class="pad">'+
-    '<div class="row between" style="padding-bottom:8px;"><div class="h-title">Agenda</div>'+
-    '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
-    '<div class="row between" style="margin-bottom:10px;background:var(--pineLight);border-radius:var(--r-md);padding:4px 6px;">'+
+  return '<div class="row between" style="margin-bottom:10px;background:var(--pineLight);border-radius:var(--r-md);padding:4px 6px;">'+
       '<button class="wk-nav" onclick="shiftWeek(-1)" aria-label="Semaine précédente">'+icon('back',20,'var(--pineDark)')+'</button>'+
       '<div style="font-size:14px;font-weight:700;color:var(--pineDark);">'+range+'</div>'+
       '<button class="wk-nav" onclick="shiftWeek(1)" aria-label="Semaine suivante">'+icon('chev',20,'var(--pineDark)')+'</button>'+
     '</div>'+
     '<div class="grid-wrap"><div class="grid">'+headers+rows+'</div></div>'+
-    legend+'</div>';
+    legend;
+}
+function agendaDay(){
+  var iso=state.dayIso;
+  var nav='<div class="row between" style="margin-bottom:14px;background:var(--pineLight);border-radius:var(--r-md);padding:4px 6px;">'+
+    '<button class="wk-nav" onclick="shiftDay(-1)" aria-label="Jour précédent">'+icon('back',20,'var(--pineDark)')+'</button>'+
+    '<div style="text-align:center"><div style="font-size:15px;font-weight:700;color:var(--pineDark);">'+fmtLong(iso)+'</div>'+(iso===TODAY?'<div style="font-size:11px;color:var(--pineDark);opacity:.85;">aujourd\'hui</div>':'')+'</div>'+
+    '<button class="wk-nav" onclick="shiftDay(1)" aria-label="Jour suivant">'+icon('chev',20,'var(--pineDark)')+'</button>'+
+  '</div>';
+  var sections=BANDS.map(function(b){
+    var list=(CH[iso]||[]).filter(function(ch){return !state.archived[ch.id] && bandOf(ch.time)===b.key;});
+    var hdr='<div class="band-hdr"><span>'+b.label+'</span><span class="band-time">'+b.time+'</span></div>';
+    var body=list.length?list.map(function(c){
+      var accent=STATUS[STATUS_KEY[c.status]].fg;
+      return '<div class="appt"><div class="time">'+c.time+'</div><div class="card" style="border-left-color:'+accent+'" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+'</div></div>'+statusPill(c.status)+'</div></div>';
+    }).join(''):'<div class="empty-band" onclick="openCreate(\''+iso+'\',\''+b.key+'\')">'+icon('plus',16,'var(--text3)')+'Ajouter un chantier</div>';
+    return hdr+body;
+  }).join('');
+  return nav+sections;
+}
+function viewAgenda(){
+  var toggle='<div class="seg" style="margin-bottom:12px;"><button class="'+(state.agendaView==='jour'?'on':'')+'" onclick="setAgendaView(\'jour\')">Jour</button><button class="'+(state.agendaView==='semaine'?'on':'')+'" onclick="setAgendaView(\'semaine\')">Semaine</button></div>';
+  var body=state.agendaView==='semaine'?agendaWeek():agendaDay();
+  return '<div class="pad">'+
+    '<div class="row between" style="padding-bottom:8px;"><div class="h-title">Agenda</div>'+
+    '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
+    toggle+body+'</div>';
 }
 
 function viewFiche(){
@@ -895,6 +933,7 @@ var VIEWS={connexion:viewConnexion,inscription:viewInscription,agenda:viewAgenda
 function render(){
   document.getElementById('app').innerHTML='<div class="screen active">'+(VIEWS[state.screen]||viewAgenda)()+'</div>';
   renderTabbar();
+  if(state.screen==='agenda' && state.agendaView==='semaine'){ var gw=document.querySelector('.grid-wrap'), t=document.querySelector('.gh.today'); if(gw&&t){ gw.scrollLeft=Math.max(0, t.offsetLeft-94); } }
 }
 render();
 renderBanner();
