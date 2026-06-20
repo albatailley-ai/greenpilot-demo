@@ -434,7 +434,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='2.2';
+var APP_VERSION='2.3';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -902,10 +902,9 @@ function viewCarte(){
     '<text x="13" y="120" font-size="10" fill="#7fa9bd" transform="rotate(-90 13,120)">Océan Atlantique</text>'+
     refDots+pins+
     '</svg>';
+  var legChip=function(key,label){ return '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:'+STATUS[key].fg+'"></span>'+label+'</span>'; };
   var legend='<div class="row" style="gap:14px;justify-content:center;margin:10px 0 4px;font-size:12px;color:var(--text2);">'+
-    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2f6da8"></span>En cours</span>'+
-    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#9c6f1e"></span>À venir</span>'+
-    '<span class="row" style="gap:5px"><span style="width:9px;height:9px;border-radius:5px;background:#2e7d32"></span>Terminé</span></div>';
+    legChip('soon','En cours')+legChip('todo','À venir')+legChip('done','Terminé')+'</div>';
   var filterBar='<div class="carte-filter"><input type="date" class="dt-input" min="2026-01-01" max="2027-12-31" value="'+(cd||'')+'" onchange="setCarteDate(this.value)"/>'+(cd?'<button class="cf-clear" onclick="setCarteDate(\'\')">Toutes les dates</button>':'<span style="font-size:12px;color:var(--text3)">Toutes les dates</span>')+'</div>';
   var list=all.length?all.map(function(c){
     return '<div class="card" style="border-left-color:'+STATUS[STATUS_KEY[c.status]].fg+';margin-bottom:9px;border-top-left-radius:var(--r-md);border-bottom-left-radius:var(--r-md);" onclick="openChantier(\''+c.id+'\')"><div style="flex:1"><div class="name">'+c.name+'</div><div class="addr">'+c.addr+(cd?'':' · '+fmtDate(dateOf(c.id)))+'</div></div>'+statusPill(c.status)+'</div>';
