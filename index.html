@@ -144,6 +144,21 @@
   .band-hdr .band-time{font-size:12px; color:var(--text3);}
   .empty-band{display:flex; align-items:center; justify-content:center; gap:6px; height:50px; border:1.5px dashed var(--border2); border-radius:var(--r-md); color:var(--text3); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:11px; transition:transform .1s;}
   .empty-band:active{transform:scale(.99);}
+  /* voix — pari produit */
+  .voice-cta{display:flex; align-items:center; gap:12px; width:100%; background:var(--pine); color:#fff; border:0; border-radius:var(--r-lg); padding:14px 16px; cursor:pointer; font-family:inherit; margin-bottom:12px; box-shadow:0 6px 16px rgba(31,93,67,.28); text-align:left;}
+  .voice-cta .vc-ic{width:44px; height:44px; border-radius:22px; background:var(--clay); display:flex; align-items:center; justify-content:center; flex:none;}
+  .voice-cta .vc-txt{flex:1; display:flex; flex-direction:column; line-height:1.25;}
+  .voice-cta .vc-txt b{font-size:15px; font-weight:700;}
+  .voice-cta .vc-txt span{font-size:12px; color:rgba(255,255,255,.82);}
+  .voice-cta:active{transform:scale(.99);}
+  .vsheet{position:absolute; inset:0; background:rgba(20,20,18,.45); display:none; align-items:flex-end; z-index:50;}
+  .vsheet.show{display:flex;}
+  .vsheet .vbody{background:var(--surface); width:100%; border-top-left-radius:20px; border-top-right-radius:20px; padding:22px 18px 24px; box-shadow:0 -8px 30px rgba(0,0,0,.22);}
+  @keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(31,93,67,.35);}70%{box-shadow:0 0 0 22px rgba(31,93,67,0);}100%{box-shadow:0 0 0 0 rgba(31,93,67,0);}}
+  .vmic{width:92px; height:92px; border-radius:50%; background:var(--pine); display:flex; align-items:center; justify-content:center; animation:vpulse 1.6s infinite;}
+  .vitem{display:flex; align-items:center; gap:11px; padding:12px; border:1px solid var(--border); border-radius:var(--r-md); margin-bottom:8px; cursor:pointer;}
+  .vitem.on{background:var(--pineLight); border-color:var(--border2);}
+  .vitem .vil{flex:1; font-size:14px; color:var(--text);}
   /* interrupteurs, unités, plans */
   .switch{width:50px; height:30px; border-radius:999px; background:var(--border2); position:relative; cursor:pointer; transition:background .15s; flex:none;}
   .switch.on{background:var(--pine);}
@@ -240,6 +255,9 @@
 
     <!-- feuille de confirmation -->
     <div class="confirm" id="confirm"></div>
+
+    <!-- feuille vocale (pari produit) -->
+    <div class="vsheet" id="voice"></div>
   </div>
 
 <script>
@@ -379,7 +397,7 @@ function chantierById(id){
 
 /* ----- état ----- */
 var state = {
-  screen:'connexion', daySel:2, monthSel:17, monthY:2026, monthM:5, agendaView:'jour', dayIso:'2026-06-17', chantier:null, tasks:{}, pw1:false, pw2:false,
+  screen:'connexion', daySel:2, monthSel:17, monthY:2026, monthM:5, agendaView:'jour', dayIso:'2026-06-17', voiceStep:null, voiceItems:[], chantier:null, tasks:{}, pw1:false, pw2:false,
   filter:'tous', archived:{}, rapportBack:'chantiers', obs:{}, devis:{}, noteFor:null,
   weekStart:'2026-06-15', createDate:'2026-06-17', createBand:'matin', carteDate:'',
   presta:[
@@ -414,7 +432,7 @@ function removeTask(id){ var ts=tasksFor(state.chantier); state.tasks[state.chan
    (version.json déployé à côté). Vérif au chargement + toutes les 60 s,
    donc un onglet déjà ouvert détecte la nouvelle version automatiquement.
    "Mettre à jour" recharge en contournant le cache -> dernière version. */
-var APP_VERSION='2.0';
+var APP_VERSION='2.1';
 function showBanner(newV){
   var b=document.getElementById('ubanner'); if(!b) return;
   b.style.display='flex';
@@ -482,7 +500,54 @@ function setSchedule(id, dateStr, band){
 }
 function login(){ go('agenda'); }
 function logout(){ go('connexion'); }
-function dictee(){ alert('Dictée vocale — bientôt dans l’app : tu parles, l’IA propose, tu valides.'); }
+function dictee(){ openVoice(); }
+/* ----- feuille vocale (parole -> IA propose -> humain valide) ----- */
+function openVoice(){ state.voiceStep='listen'; document.getElementById('voice').classList.add('show'); renderVoice(); }
+function closeVoice(){ document.getElementById('voice').classList.remove('show'); state.voiceStep=null; }
+function voiceListenDone(){
+  state.voiceStep='result';
+  state.voiceItems=[
+    {label:'Tonte pelouse → <b>Fait</b>', on:true},
+    {label:'Taille des lauriers → <b>Reporté</b>', on:true},
+    {label:'Demande client : <b>devis clôture</b>', on:true}
+  ];
+  renderVoice();
+}
+function toggleVoiceItem(i){ state.voiceItems[i].on=!state.voiceItems[i].on; renderVoice(); }
+function validateVoice(){
+  var ts=tasksFor('c-martin');
+  function setT(label,st){ for(var i=0;i<ts.length;i++){ if(ts[i].label===label) ts[i].status=st; } }
+  if(state.voiceItems[0] && state.voiceItems[0].on) setT('Tonte pelouse','fait');
+  if(state.voiceItems[1] && state.voiceItems[1].on) setT('Taille des lauriers','reporte');
+  closeVoice();
+  state.rapportBack='agenda';
+  openChantier('c-martin'); // on voit le résultat appliqué
+}
+function renderVoice(){
+  var el=document.getElementById('voice'); if(!el) return;
+  if(state.voiceStep==='listen'){
+    el.innerHTML='<div class="vbody" style="text-align:center;">'+
+      '<div style="display:flex;justify-content:center;margin:6px 0 16px;"><div class="vmic">'+icon('mic',40,'#fff')+'</div></div>'+
+      '<div style="font-size:17px;font-weight:700;">Je t\'écoute…</div>'+
+      '<div style="font-size:13px;color:var(--text2);margin:6px 0 18px;line-height:1.5;">Ex. : « Chez Mme Martin, tonte faite, taille des lauriers reportée, et prévoir un devis clôture. »</div>'+
+      '<button class="btn-primary" onclick="voiceListenDone()">'+icon('check',18,'#fff')+'&nbsp;J\'ai fini de parler</button>'+
+      '<button class="rep-btn" style="width:100%;background:transparent;color:var(--text2);height:44px;margin-top:8px;" onclick="closeVoice()">Annuler</button>'+
+      '</div>';
+  } else {
+    var items=state.voiceItems.map(function(it,i){
+      return '<div class="vitem'+(it.on?' on':'')+'" onclick="toggleVoiceItem('+i+')">'+icon(it.on?'checkbox':'square',22,it.on?STATUS.done.fg:'var(--text3)')+'<span class="vil">'+it.label+'</span></div>';
+    }).join('');
+    el.innerHTML='<div class="vbody">'+
+      '<div style="font-size:17px;font-weight:700;margin-bottom:4px;">L\'IA a compris ceci</div>'+
+      '<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:14px;">« Chez Mme Martin, tonte faite, taille des lauriers reportée, et prévoir un devis clôture. »</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--pineDark);">'+icon('user',16,'var(--pineDark)')+'Mme Martin · Biscarrosse</div>'+
+      items+
+      '<div style="font-size:12px;color:var(--text3);margin:6px 0 16px;">L\'IA propose — décoche ce qui est faux, puis valide. Rien n\'est écrit sans toi.</div>'+
+      '<button class="btn-primary" onclick="validateVoice()">'+icon('check',18,'#fff')+'&nbsp;Valider et appliquer</button>'+
+      '<div style="display:flex;gap:10px;margin-top:8px;"><button class="rep-btn" style="flex:1;background:var(--surface2);color:var(--text2);" onclick="openVoice()">Recommencer</button><button class="rep-btn" style="flex:1;background:transparent;color:var(--text2);border:1px solid var(--border2);" onclick="closeVoice()">Annuler</button></div>'+
+      '</div>';
+  }
+}
 function selectMonthDay(d){
   state.monthSel=d;
   var iso=state.monthY+'-'+pad2(state.monthM+1)+'-'+pad2(d);
@@ -652,7 +717,8 @@ function viewAgenda(){
   var body=state.agendaView==='semaine'?agendaWeek():agendaDay();
   return '<div class="pad">'+
     '<div class="row between" style="padding-bottom:8px;"><div class="h-title">Agenda</div>'+
-    '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="dictee()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
+    '<div class="row" style="gap:8px;"><div class="icon-btn" title="Note vocale" onclick="openVoice()">'+icon('mic',20,'var(--text)')+'</div><div class="icon-btn" title="Vue mois" onclick="go(\'mois\')">'+icon('calendar',20,'var(--text)')+'</div></div></div>'+
+    '<button class="voice-cta" onclick="openVoice()"><span class="vc-ic">'+icon('mic',22,'#fff')+'</span><span class="vc-txt"><b>Dicter à GreenPilot</b><span>Tonte faite, taille reportée… l\'IA s\'en occupe</span></span>'+icon('chev',18,'rgba(255,255,255,.7)')+'</button>'+
     toggle+body+'</div>';
 }
 
@@ -899,7 +965,7 @@ function renderModal(){
   var body='<div class="pad">'+
     '<div class="row" style="gap:8px;padding-top:2px;"><div class="icon-btn" style="border:0;width:34px;height:34px;background:transparent" onclick="closeCreate()">'+icon('x',24,'var(--text)')+'</div><div style="font-size:20px;font-weight:600;">Créer un chantier</div></div>'+
     '<div style="height:14px"></div>'+
-    '<div class="voice">'+icon('mic',23,'var(--pineDark)')+'Dicter le chantier</div>'+
+    '<div class="voice" onclick="openVoice()">'+icon('mic',23,'var(--pineDark)')+'Dicter le chantier</div>'+
     '<div style="text-align:center;color:var(--text3);font-size:12px;margin-bottom:16px;">ou remplir manuellement</div>'+
     '<div class="field">'+icon('user',19,'var(--text3)')+'<input id="newClient" placeholder="Client" autocomplete="off"/></div>'+
     '<div class="field">'+icon('pin',19,'var(--text3)')+'<input id="newAddr" placeholder="Adresse" autocomplete="off" oninput="addrInput(this.value)" onfocus="addrInput(this.value)"/></div>'+
